@@ -116,7 +116,7 @@ namespace OddAutoWalker
         private static readonly double WindupBuffer = 1d / 15d;
 
         // If we're trying to input faster than this, don't
-        private static double MinInputDelay => CurrentSettings.MinInputDelayMs / 1000.0;
+        private static double MinInputDelay => GetEffectiveMinInputDelay();
 
         // This is honestly just semi-random because we need an interval to run the timer at
         private static readonly double OrderTickRate = 1d / 30d;
@@ -128,7 +128,45 @@ namespace OddAutoWalker
         // These are all in seconds
         public static double GetSecondsPerAttack() => 1 / ClientAttackSpeed;
         public static double GetWindupDuration() => (((GetSecondsPerAttack() * ChampionAttackDelayPercent) - ChampionAttackCastTime) * ChampionAttackDelayScaling) + ChampionAttackCastTime;
-        public static double GetBufferedWindupDuration() => GetWindupDuration() + (CurrentSettings.WindupBufferMs / 1000.0);
+        public static double GetBufferedWindupDuration() => GetWindupDuration();
+        
+        // 自适应计算函数
+        private static double GetAdaptiveTimerInterval()
+        {
+            // 基于攻击间隔的合理算法
+            // 目标：每次攻击至少有8-12个检查周期，确保精确度
+            var secondsPerAttack = GetSecondsPerAttack();
+            
+            // 计算理想的检查频率：每次攻击8-12次检查
+            var idealChecksPerAttack = 10; // 每次攻击检查10次
+            var idealInterval = secondsPerAttack / idealChecksPerAttack * 1000;
+            
+            // 限制范围：最高200Hz(5ms)，最低60Hz(16.67ms)
+            // 200Hz足够精确，60Hz保证基本流畅
+            return Math.Max(Math.Min(idealInterval, 5.0), 16.67);
+        }
+        
+        private static double GetAdaptiveInputDelay()
+        {
+            // 基于攻速的最小输入间隔
+            var secondsPerAttack = GetSecondsPerAttack();
+            return Math.Max(secondsPerAttack / 20.0 * 1000, 10); // 最少10ms
+        }
+        
+        // 获取有效参数值（支持auto模式）
+        private static double GetEffectiveTimerInterval()
+        {
+            return CurrentSettings.TimerIntervalMs < 0 
+                ? GetAdaptiveTimerInterval() 
+                : CurrentSettings.TimerIntervalMs;
+        }
+        
+        private static double GetEffectiveMinInputDelay()
+        {
+            return CurrentSettings.MinInputDelayMs < 0 
+                ? GetAdaptiveInputDelay() / 1000.0
+                : CurrentSettings.MinInputDelayMs / 1000.0;
+        }
 
         private static HttpClient CreateHttpClient()
         {
@@ -172,8 +210,12 @@ namespace OddAutoWalker
                         var attackSpeed = ClientAttackSpeed.ToString("F3");
                         var windupTime = GetWindupDuration().ToString("F3");
                         
+                        var timerInfo = CurrentSettings.TimerIntervalMs < 0 
+                            ? $"{GetEffectiveTimerInterval():F2}ms (auto)" 
+                            : $"{CurrentSettings.TimerIntervalMs:F2}ms";
+                        
                         Console.SetCursorPosition(0, 3);
-                        Console.WriteLine($"状态: {status} | 游戏: {gameStatus} | 攻速: {attackSpeed} | 前摇: {windupTime}s");
+                        Console.WriteLine($"状态: {status} | 游戏: {gameStatus} | 攻速: {attackSpeed} | 定时器: {timerInfo} | 网络: {estimatedApiLatency:F0}ms");
                     }
                     
                     await Task.Delay(500); // 每500ms更新一次状态
@@ -207,7 +249,7 @@ namespace OddAutoWalker
             InputManager.OnKeyboardEvent += InputManager_OnKeyboardEvent;
 
             // 初始化定时器
-            OrbWalkTimer = new Timer(CurrentSettings.TimerIntervalMs);
+            OrbWalkTimer = new Timer(GetEffectiveTimerInterval());
             OrbWalkTimer.Elapsed += OrbWalkTimer_Elapsed;
 #if DEBUG
             Timer callbackTimer = new Timer(16.66);
@@ -393,6 +435,9 @@ namespace OddAutoWalker
 
         private static int apiFailureCount = 0;
         private static DateTime lastApiFailure = DateTime.MinValue;
+        
+        // 网络延迟检测
+        private static double estimatedApiLatency = 30; // 默认30ms
 
         private static async Task<JsonDocument> GetApiDataWithRetry(string endpoint, int maxRetries = 3)
         {
@@ -400,7 +445,13 @@ namespace OddAutoWalker
             {
                 try
                 {
+                    var sw = Stopwatch.StartNew();
                     var response = await Client.GetStringAsync(endpoint);
+                    sw.Stop();
+                    
+                    // 更新网络延迟估计（移动平均）
+                    estimatedApiLatency = estimatedApiLatency * 0.8 + sw.ElapsedMilliseconds * 0.2;
+                    
                     apiFailureCount = 0; // 重置失败计数
                     return JsonDocument.Parse(response);
                 }
@@ -529,6 +580,18 @@ namespace OddAutoWalker
 #endif
 
                 ClientAttackSpeed = activePlayerDoc.RootElement.GetProperty("championStats").GetProperty("attackSpeed").GetDouble();
+                
+                // 如果启用自适应且攻速改变，重新设置定时器
+                if (CurrentSettings.TimerIntervalMs < 0)
+                {
+                    var newInterval = GetAdaptiveTimerInterval();
+                    if (Math.Abs(OrbWalkTimer.Interval - newInterval) > 1)
+                    {
+                        OrbWalkTimer.Interval = newInterval;
+                        LogMessage($"自适应调整定时器: {newInterval:F2}ms", LogLevel.Info);
+                    }
+                }
+                
                 IsUpdatingAttackValues = false;
             }
         }

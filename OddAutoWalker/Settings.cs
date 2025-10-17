@@ -9,11 +9,10 @@ namespace OddAutoWalker
     public class Settings
     {
         public int ActivationKey { get; set; } = (int)VirtualKeyCode.C;
-        public double WindupBufferMs { get; set; } = 66.7;
-        public double MinInputDelayMs { get; set; } = 33.3;
+        public double MinInputDelayMs { get; set; } = -1;  // -1 = auto, or fixed value (10-50)
         public bool EnableLogging { get; set; } = false;
         public int ApiRetryCount { get; set; } = 3;
-        public double TimerIntervalMs { get; set; } = 33.3;
+        public double TimerIntervalMs { get; set; } = -1;  // -1 = auto (4-33ms), or fixed value
 
         public void CreateNew(string path)
         {
@@ -27,25 +26,23 @@ namespace OddAutoWalker
                 sw.WriteLine("//   按住此键时，程序会执行走A操作");
                 sw.WriteLine("//   默认值: 67 (C键)");
                 sw.WriteLine();
-                sw.WriteLine("// WindupBufferMs: 攻击前摇缓冲时间(毫秒)");
-                sw.WriteLine("//   防止因FPS、延迟等原因过早取消攻击");
-                sw.WriteLine("//   建议值: 50-100ms，默认值: 66.7ms");
+                sw.WriteLine("// TimerIntervalMs: 走A刷新频率(毫秒)");
+                sw.WriteLine("//   控制程序检查攻击/移动的频率，值越小越精确但占用更多CPU");
+                sw.WriteLine("//   -1: 智能模式，根据攻速自动调整(5-16.67ms)");
+                sw.WriteLine("//   固定值: 5-16.67ms，推荐16.67ms(60Hz)");
                 sw.WriteLine();
-                sw.WriteLine("// MinInputDelayMs: 最小输入延迟(毫秒)");
-                sw.WriteLine("//   两次输入之间的最小间隔时间");
-                sw.WriteLine("//   防止输入过于频繁，建议值: 20-50ms，默认值: 33.3ms");
+                sw.WriteLine("// MinInputDelayMs: 按键间隔(毫秒)");
+                sw.WriteLine("//   两次按键之间的最小间隔，防止按键过于频繁");
+                sw.WriteLine("//   -1: 智能模式，根据攻速自动调整(10-50ms)");
+                sw.WriteLine("//   固定值: 10-50ms，推荐16.67ms");
                 sw.WriteLine();
-                sw.WriteLine("// EnableLogging: 是否启用日志输出");
-                sw.WriteLine("//   true: 显示详细运行信息，false: 静默运行");
-                sw.WriteLine("//   调试时建议开启，默认值: false");
+                sw.WriteLine("// EnableLogging: 是否显示运行信息");
+                sw.WriteLine("//   true: 显示攻速、定时器状态等信息");
+                sw.WriteLine("//   false: 静默运行，不显示任何信息");
                 sw.WriteLine();
-                sw.WriteLine("// ApiRetryCount: API请求重试次数");
+                sw.WriteLine("// ApiRetryCount: 网络重试次数");
                 sw.WriteLine("//   获取游戏数据失败时的重试次数");
-                sw.WriteLine("//   建议值: 3-5次，默认值: 3");
-                sw.WriteLine();
-                sw.WriteLine("// TimerIntervalMs: 定时器间隔(毫秒)");
-                sw.WriteLine("//   走A逻辑的执行频率，值越小越精确但占用更多CPU");
-                sw.WriteLine("//   建议值: 16-50ms，默认值: 33.3ms (约30FPS)");
+                sw.WriteLine("//   建议值: 3-5次，网络不好可以增加到5");
                 sw.WriteLine();
                 sw.WriteLine("// ========================================");
                 sw.WriteLine("// 按键码对照表 (常用按键)");
@@ -69,11 +66,43 @@ namespace OddAutoWalker
                 sw.WriteLine("//   4 - 鼠标侧键1, 5 - 鼠标侧键2");
                 sw.WriteLine();
                 sw.WriteLine("// ========================================");
-                sw.WriteLine("// 配置示例:");
-                sw.WriteLine("//   - 使用鼠标侧键1激活: \"ActivationKey\": 4");
-                sw.WriteLine("//   - 使用空格键激活: \"ActivationKey\": 32");
-                sw.WriteLine("//   - 高精度模式: \"TimerIntervalMs\": 16.67");
-                sw.WriteLine("//   - 低延迟模式: \"MinInputDelayMs\": 20");
+                sw.WriteLine("// 配置示例 (复制到settings.json使用):");
+                sw.WriteLine("// ========================================");
+                sw.WriteLine("// 1. 新手推荐配置 (智能模式):");
+                sw.WriteLine("// {");
+                sw.WriteLine("//   \"ActivationKey\": 67,");
+                sw.WriteLine("//   \"TimerIntervalMs\": -1,");
+                sw.WriteLine("//   \"MinInputDelayMs\": -1,");
+                sw.WriteLine("//   \"EnableLogging\": true,");
+                sw.WriteLine("//   \"ApiRetryCount\": 3");
+                sw.WriteLine("// }");
+                sw.WriteLine();
+                sw.WriteLine("// 2. 高精度配置 (追求极致流畅):");
+                sw.WriteLine("// {");
+                sw.WriteLine("//   \"ActivationKey\": 67,");
+                sw.WriteLine("//   \"TimerIntervalMs\": 5.0,");
+                sw.WriteLine("//   \"MinInputDelayMs\": 10,");
+                sw.WriteLine("//   \"EnableLogging\": true,");
+                sw.WriteLine("//   \"ApiRetryCount\": 3");
+                sw.WriteLine("// }");
+                sw.WriteLine();
+                sw.WriteLine("// 3. 平衡配置 (性能与流畅兼顾):");
+                sw.WriteLine("// {");
+                sw.WriteLine("//   \"ActivationKey\": 67,");
+                sw.WriteLine("//   \"TimerIntervalMs\": 16.67,");
+                sw.WriteLine("//   \"MinInputDelayMs\": 16.67,");
+                sw.WriteLine("//   \"EnableLogging\": true,");
+                sw.WriteLine("//   \"ApiRetryCount\": 3");
+                sw.WriteLine("// }");
+                sw.WriteLine();
+                sw.WriteLine("// 4. 鼠标侧键激活:");
+                sw.WriteLine("// {");
+                sw.WriteLine("//   \"ActivationKey\": 4,");
+                sw.WriteLine("//   \"TimerIntervalMs\": -1,");
+                sw.WriteLine("//   \"MinInputDelayMs\": -1,");
+                sw.WriteLine("//   \"EnableLogging\": true,");
+                sw.WriteLine("//   \"ApiRetryCount\": 3");
+                sw.WriteLine("// }");
                 sw.WriteLine("// ========================================");
                 sw.WriteLine();
                 sw.WriteLine(JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
@@ -103,11 +132,10 @@ namespace OddAutoWalker
             ActivationKey = loadedSettings.ActivationKey;
             
             // 向后兼容：如果新字段不存在，使用默认值
-            WindupBufferMs = loadedSettings.WindupBufferMs > 0 ? loadedSettings.WindupBufferMs : 66.7;
-            MinInputDelayMs = loadedSettings.MinInputDelayMs > 0 ? loadedSettings.MinInputDelayMs : 33.3;
+            MinInputDelayMs = loadedSettings.MinInputDelayMs >= 0 ? loadedSettings.MinInputDelayMs : -1;
             EnableLogging = loadedSettings.EnableLogging;
             ApiRetryCount = loadedSettings.ApiRetryCount > 0 ? loadedSettings.ApiRetryCount : 3;
-            TimerIntervalMs = loadedSettings.TimerIntervalMs > 0 ? loadedSettings.TimerIntervalMs : 33.3;
+            TimerIntervalMs = loadedSettings.TimerIntervalMs >= 0 ? loadedSettings.TimerIntervalMs : -1;
         }
     }
 }

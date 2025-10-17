@@ -6,25 +6,23 @@
 //   按住此键时，程序会执行走A操作
 //   默认值: 67 (C键)
 
-// WindupBufferMs: 攻击前摇缓冲时间(毫秒)
-//   防止因FPS、延迟等原因过早取消攻击
-//   建议值: 50-100ms，默认值: 66.7ms
+// TimerIntervalMs: 走A刷新频率(毫秒)
+//   控制程序检查攻击/移动的频率，值越小越精确但占用更多CPU
+//   -1: 智能模式，根据攻速自动调整(5-16.67ms)
+//   固定值: 5-16.67ms，推荐16.67ms(60Hz)
 
-// MinInputDelayMs: 最小输入延迟(毫秒)
-//   两次输入之间的最小间隔时间
-//   防止输入过于频繁，建议值: 20-50ms，默认值: 33.3ms
+// MinInputDelayMs: 按键间隔(毫秒)
+//   两次按键之间的最小间隔，防止按键过于频繁
+//   -1: 智能模式，根据攻速自动调整(10-50ms)
+//   固定值: 10-50ms，推荐16.67ms
 
-// EnableLogging: 是否启用日志输出
-//   true: 显示详细运行信息，false: 静默运行
-//   调试时建议开启，默认值: false
+// EnableLogging: 是否显示运行信息
+//   true: 显示攻速、定时器状态等信息
+//   false: 静默运行，不显示任何信息
 
-// ApiRetryCount: API请求重试次数
+// ApiRetryCount: 网络重试次数
 //   获取游戏数据失败时的重试次数
-//   建议值: 3-5次，默认值: 3
-
-// TimerIntervalMs: 定时器间隔(毫秒)
-//   走A逻辑的执行频率，值越小越精确但占用更多CPU
-//   建议值: 16-50ms，默认值: 33.3ms (约30FPS)
+//   建议值: 3-5次，网络不好可以增加到5
 
 // ========================================
 // 按键码对照表 (常用按键)
@@ -48,18 +46,49 @@
 //   4 - 鼠标侧键1, 5 - 鼠标侧键2
 
 // ========================================
-// 配置示例:
-//   - 使用鼠标侧键1激活: "ActivationKey": 4
-//   - 使用空格键激活: "ActivationKey": 32
-//   - 高精度模式: "TimerIntervalMs": 16.67
-//   - 低延迟模式: "MinInputDelayMs": 20
+// 配置示例 
+// ========================================
+// 1. 新手推荐配置 (智能模式):
+// {
+//   "ActivationKey": 67,
+//   "TimerIntervalMs": -1,
+//   "MinInputDelayMs": -1,
+//   "EnableLogging": true,
+//   "ApiRetryCount": 3
+// }
+//
+// 2. 高精度配置 (追求极致流畅):
+// {
+//   "ActivationKey": 67,
+//   "TimerIntervalMs": 5.0,
+//   "MinInputDelayMs": 10,
+//   "EnableLogging": true,
+//   "ApiRetryCount": 3
+// }
+//
+// 3. 平衡配置 (性能与流畅兼顾):
+// {
+//   "ActivationKey": 67,
+//   "TimerIntervalMs": 16.67,
+//   "MinInputDelayMs": 16.67,
+//   "EnableLogging": true,
+//   "ApiRetryCount": 3
+// }
+//
+// 4. 鼠标侧键激活:
+// {
+//   "ActivationKey": 4,
+//   "TimerIntervalMs": -1,
+//   "MinInputDelayMs": -1,
+//   "EnableLogging": true,
+//   "ApiRetryCount": 3
+// }
 // ========================================
 
 {
   "ActivationKey": 67,
-  "WindupBufferMs": 66.7,
-  "MinInputDelayMs": 33.3,
-  "EnableLogging": false,
+  "MinInputDelayMs": -1,
+  "EnableLogging": true,
   "ApiRetryCount": 3,
-  "TimerIntervalMs": 33.3
+  "TimerIntervalMs": -1
 }
