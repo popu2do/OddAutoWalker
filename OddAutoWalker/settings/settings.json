@@ -1,94 +1,220 @@
-// ========================================
-// OddAutoWalker 配置文件说明
-// ========================================
-
-// ActivationKey: 激活走A功能的按键码
-//   按住此键时，程序会执行走A操作
-//   默认值: 67 (C键)
-
-// TimerIntervalMs: 走A刷新频率(毫秒)
-//   控制程序检查攻击/移动的频率，值越小越精确但占用更多CPU
-//   -1: 智能模式，根据攻速自动调整(5-16.67ms)
-//   固定值: 5-16.67ms，推荐16.67ms(60Hz)
-
-// MinInputDelayMs: 按键间隔(毫秒)
-//   两次按键之间的最小间隔，防止按键过于频繁
-//   -1: 智能模式，根据攻速自动调整(10-50ms)
-//   固定值: 10-50ms，推荐16.67ms
-
-// EnableLogging: 是否显示运行信息
-//   true: 显示攻速、定时器状态等信息
-//   false: 静默运行，不显示任何信息
-
-// ApiRetryCount: 网络重试次数
-//   获取游戏数据失败时的重试次数
-//   建议值: 3-5次，网络不好可以增加到5
-
-// ========================================
-// 按键码对照表 (常用按键)
-// ========================================
-// 字母键:
-//   65 - A, 66 - B, 67 - C, 68 - D, 69 - E
-//   70 - F, 71 - G, 72 - H, 73 - I, 74 - J
-//   75 - K, 76 - L, 77 - M, 78 - N, 79 - O
-//   80 - P, 81 - Q, 82 - R, 83 - S, 84 - T
-//   85 - U, 86 - V, 87 - W, 88 - X, 89 - Y, 90 - Z
-
-// 数字键:
-//   48 - 0, 49 - 1, 50 - 2, 51 - 3, 52 - 4
-//   53 - 5, 54 - 6, 55 - 7, 56 - 8, 57 - 9
-
-// 功能键:
-//   32 - 空格, 13 - 回车, 27 - ESC, 9 - Tab
-//   16 - Shift, 17 - Ctrl, 18 - Alt
-
-// 鼠标侧键:
-//   4 - 鼠标侧键1, 5 - 鼠标侧键2
-
-// ========================================
-// 配置示例 
-// ========================================
-// 1. 新手推荐配置 (智能模式):
-// {
-//   "ActivationKey": 67,
-//   "TimerIntervalMs": -1,
-//   "MinInputDelayMs": -1,
-//   "EnableLogging": true,
-//   "ApiRetryCount": 3
-// }
-//
-// 2. 高精度配置 (追求极致流畅):
-// {
-//   "ActivationKey": 67,
-//   "TimerIntervalMs": 5.0,
-//   "MinInputDelayMs": 10,
-//   "EnableLogging": true,
-//   "ApiRetryCount": 3
-// }
-//
-// 3. 平衡配置 (性能与流畅兼顾):
-// {
-//   "ActivationKey": 67,
-//   "TimerIntervalMs": 16.67,
-//   "MinInputDelayMs": 16.67,
-//   "EnableLogging": true,
-//   "ApiRetryCount": 3
-// }
-//
-// 4. 鼠标侧键激活:
-// {
-//   "ActivationKey": 4,
-//   "TimerIntervalMs": -1,
-//   "MinInputDelayMs": -1,
-//   "EnableLogging": true,
-//   "ApiRetryCount": 3
-// }
-// ========================================
-
+/* All Corresponding Key Bind Key Codes
+* 	0 - Hotkey
+* 	1 - Lbutton
+* 	2 - Rbutton
+* 	3 - Cancel
+* 	4 - Mbutton
+* 	5 - Xbutton1
+* 	6 - Xbutton2
+* 	8 - Back
+* 	9 - Tab
+* 	12 - Clear
+* 	13 - Return
+* 	16 - Shift
+* 	17 - Control
+* 	18 - Menu
+* 	19 - Pause
+* 	20 - Capital
+* 	21 - Kana
+* 	22 - Hangul
+* 	23 - Junja
+* 	24 - Final
+* 	25 - Hanja
+* 	26 - Kanji
+* 	27 - Escape
+* 	28 - Convert
+* 	29 - Nonconvert
+* 	30 - Accept
+* 	31 - Modechange
+* 	32 - Space
+* 	33 - Prior
+* 	34 - Next
+* 	35 - End
+* 	36 - Home
+* 	37 - Left
+* 	38 - Up
+* 	39 - Right
+* 	40 - Down
+* 	41 - Select
+* 	42 - Print
+* 	43 - Execute
+* 	44 - Snapshot
+* 	45 - Insert
+* 	46 - Delete
+* 	47 - Help
+* 	48 - Zero
+* 	49 - One
+* 	50 - Two
+* 	51 - Three
+* 	52 - Four
+* 	53 - Five
+* 	54 - Six
+* 	55 - Seven
+* 	56 - Eight
+* 	57 - Nine
+* 	65 - A
+* 	66 - B
+* 	67 - C
+* 	68 - D
+* 	69 - E
+* 	70 - F
+* 	71 - G
+* 	72 - H
+* 	73 - I
+* 	74 - J
+* 	75 - K
+* 	76 - L
+* 	77 - M
+* 	78 - N
+* 	79 - O
+* 	80 - P
+* 	81 - Q
+* 	82 - R
+* 	83 - S
+* 	84 - T
+* 	85 - U
+* 	86 - V
+* 	87 - W
+* 	88 - X
+* 	89 - Y
+* 	90 - Z
+* 	91 - Lwin
+* 	92 - Rwin
+* 	93 - Apps
+* 	95 - Sleep
+* 	96 - Numpad0
+* 	97 - Numpad1
+* 	98 - Numpad2
+* 	99 - Numpad3
+* 	100 - Numpad4
+* 	101 - Numpad5
+* 	102 - Numpad6
+* 	103 - Numpad7
+* 	104 - Numpad8
+* 	105 - Numpad9
+* 	106 - Multiply
+* 	107 - Add
+* 	108 - Separator
+* 	109 - Subtract
+* 	110 - Decimal
+* 	111 - Divide
+* 	112 - F1
+* 	113 - F2
+* 	114 - F3
+* 	115 - F4
+* 	116 - F5
+* 	117 - F6
+* 	118 - F7
+* 	119 - F8
+* 	120 - F9
+* 	121 - F10
+* 	122 - F11
+* 	123 - F12
+* 	124 - F13
+* 	125 - F14
+* 	126 - F15
+* 	127 - F16
+* 	128 - F17
+* 	129 - F18
+* 	130 - F19
+* 	131 - F20
+* 	132 - F21
+* 	133 - F22
+* 	134 - F23
+* 	135 - F24
+* 	144 - Numlock
+* 	145 - Scroll
+* 	160 - Lshift
+* 	161 - Rshift
+* 	162 - Lcontrol
+* 	163 - Rcontrol
+* 	164 - Lmenu
+* 	165 - Rmenu
+* 	166 - BrowserBack
+* 	167 - BrowserForward
+* 	168 - BrowserRefresh
+* 	169 - BrowserStop
+* 	170 - BrowserSearch
+* 	171 - BrowserFavorites
+* 	172 - BrowserHome
+* 	173 - VolumeMute
+* 	174 - VolumeDown
+* 	175 - VolumeUp
+* 	176 - MediaNextTrack
+* 	177 - MediaPrevTrack
+* 	178 - MediaStop
+* 	179 - MediaPlayPause
+* 	180 - LaunchMail
+* 	181 - LaunchMediaSelect
+* 	182 - LaunchApp1
+* 	183 - LaunchApp2
+* 	186 - Oem1
+* 	187 - OemPlus
+* 	188 - OemComma
+* 	189 - OemMinus
+* 	190 - OemPeriod
+* 	191 - Oem2
+* 	192 - Oem3
+* 	219 - Oem4
+* 	220 - Oem5
+* 	221 - Oem6
+* 	222 - Oem7
+* 	223 - Oem8
+* 	226 - Oem102
+* 	229 - Processkey
+* 	231 - Packet
+* 	246 - Attn
+* 	247 - Crsel
+* 	248 - Exsel
+* 	249 - Ereof
+* 	250 - Play
+* 	251 - Zoom
+* 	252 - Noname
+* 	253 - Pa1
+* 	254 - OemClear
+* 	-1 - Invalid
+*/
 {
+  /* 设置参数说明：
+   * 
+   * ActivationKey: 激活键码 (67 = C键)
+   *   - 用于启用/禁用自动走位功能的按键
+   *   - 参考上方键码表选择其他按键
+   * 
+   * EnableAdaptiveTimer: 是否启用自适应定时器 (true/false)
+   *   - true: 根据游戏帧率自动调整定时器间隔，获得最佳性能
+   *   - false: 使用固定定时器间隔，由FixedTimerIntervalMs控制
+   * 
+   * FixedTimerIntervalMs: 固定定时器间隔毫秒数 (16.67)
+   *   - 当EnableAdaptiveTimer为false时生效
+   *   - 16.67ms ≈ 60FPS，可根据需要调整
+   * 
+   * MinMoveIntervalSeconds: 最小移动间隔秒数 (0.1)
+   *   - 防止移动指令过于频繁的基础限制
+   *   - 确保移动指令之间有最小的时间间隔
+   * 
+   * EnableSmartMoveLogic: 是否启用智能移动逻辑 (true/false)
+   *   - true: 根据攻速智能调整移动频率
+   *   - false: 使用简单的固定移动间隔
+   * 
+   * MinMoveCommandIntervalSeconds: 移动指令最小间隔秒数 (0.01)
+   *   - 防止移动指令过于频繁，避免无效微操
+   *   - 当攻速很高时(如10.0以上)，间隔再小也没意义，不如站桩输出
+   * 
+   * MaxMoveCommandIntervalSeconds: 移动指令最大间隔秒数 (0.33)
+   *   - 防止移动间隔过长影响走位
+   *   - 当攻速很低时，限制最大移动间隔，保持基本的走位频率（最慢每秒3次点击）  
+   *
+   * ----------------------------- tips -----------------------------
+   * 如果还觉得点的慢影响走位，可以进一步调小MaxMoveCommandIntervalSeconds
+   * 我的建议是，低攻速时点按走a注重走位，高攻速时长按获得更丝滑的走a体验
+   * ----------------------------------------------------------------
+   */
   "ActivationKey": 67,
-  "MinInputDelayMs": -1,
-  "EnableLogging": true,
-  "ApiRetryCount": 3,
-  "TimerIntervalMs": -1
+  "EnableAdaptiveTimer": true,
+  "FixedTimerIntervalMs": 16.67,
+  "MinMoveIntervalSeconds": 0.1,
+  "EnableSmartMoveLogic": true,
+  "MinMoveCommandIntervalSeconds": 0.01,
+  "MaxMoveCommandIntervalSeconds": 0.33
 }

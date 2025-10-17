@@ -28,61 +28,83 @@ Using [LowLevelInput.Net](https://github.com/michel-pi/LowLevelInput.Net), `OddA
 
 ---
 
-### 编译
-如果你想要最新版本或自定义修改：
+## How To Get This Program
 
-**系统要求：**
-- Windows 10/11 系统
-- 下载安装 [.NET 9.0 SDK](https://dotnet.microsoft.com/download)
+If you have not already, you will need to grab the latest version from here: [Latest Release](https://github.com/approved/OddAutoWalker/releases)
 
-**编译步骤：**
-1. 下载源码（方法同上）
-2. 解压后打开命令行，进入项目文件夹
-3. 运行以下命令：
-   ```bash
-   dotnet build -c Release
-   ```
-4. 编译完成后，程序在 `bin\Release\net9.0\win-x64\` 文件夹中
+To Compile Yourself:
 
-**生成单文件版本（可选）：**
+* Your computer must be running Windows 10 version 1703 or higher
+* Download the latest version of [Visual Studio](https://visualstudio.microsoft.com/downloads/) (VS)
+* Make sure the .NET Core 3.1 SDK is installed if it was not installed with VS
+* Clone or Download the Source
+* Open `OddAutoWalker.sln` with VS to build and run the project
+
+### Build Commands
+
 ```bash
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true
+# Restore packages
+dotnet restore
+
+# Build the project
+dotnet build --configuration Release
+
+# Publish for Windows x64
+dotnet publish --configuration Release --runtime win10-x64 --self-contained true
 ```
-生成的单文件在 `bin\Release\net9.0\win-x64\publish\OddAutoWalker.exe`
 
 ---
 
-## 使用方法
-
-### 重要说明
-- 程序需要在游戏内将 **"玩家攻击移动"** 绑定到 **'A'** 键
-- 设置位置：游戏内 → 设置 → 热键 → 玩家移动
-
-### 使用步骤
-
-1. **启动程序**
-   - 双击 `OddAutoWalker.exe` 运行程序
-
-2. **进入游戏**
-   - 等待进入游戏
-
-3. **激活走A**
-   - 按住 **'C'** 键激活自动走A
-   - 松开 **'C'** 键停止走A
-
-4. **聊天模式**
-   - 按 **回车键** 进入聊天模式（走A延迟激活）
-   - 按 **ESC键** 退出聊天模式
-   - 聊天模式30秒后退出
-
-### 修改特点
-- ✅ 智能计算攻击间隔
-- ✅ 聊天模式延迟将延迟激活走a（30秒超时）
-- ✅ 150ms延迟激活防止误触影响输入
-- ✅ 自适应定时器优化
+## Using This Program
+<details>
+    <summary>Important Note</summary>
+    <p>
+        <i>
+            <b>
+                While this program is usable, it is intended to be used as reference for both a better implementation and your own project.
+                <br>
+                <br>
+                If you don't want to mess with the program yourself, you must have your "Player Attack Move" bound to 'A'. <br>
+                This setting can be found in the in-game settings at Settings->Hotkeys->Player Movement.
+            </b>
+        </i>
+    </p>
+</details>
 
 ---
 
-## 致谢
+Steps:
 
-基于 [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) 进行修改。
+1. Launch OddAutoWalker.exe and League of Legends
+2. Queue up in any mode, excluding Team Fight Tactics, and wait until you're in game
+3. Press and hold 'C' to activate the auto walker
+4. Deactivate by releasing 'C'
+
+---
+
+## Configuration
+
+Additional settings available in `settings/settings.json`:
+
+- `EnableAdaptiveTimer` - Enable/disable adaptive timer system
+- `EnableSmartMoveLogic` - Enable/disable smart movement logic  
+- `MinMoveIntervalSeconds` - Minimum movement interval
+- `MinMoveCommandIntervalSeconds` - Minimum move command interval
+- `MaxMoveCommandIntervalSeconds` - Maximum move command interval
+
+---
+
+## Fork Improvements
+
+This fork enhances the original [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) with:
+
+- **Adaptive Timer System** - Dynamically adjusts timer intervals based on attack speed for smoother orb walking
+- **Smart Move Logic** - Uses curve algorithms to reduce movement command frequency, preventing disconnection issues
+- **Enhanced Configuration** - More settings options with backward compatibility for fine-tuning
+- **Performance Monitoring** - API call statistics and attack speed change detection for better stability
+
+---
+
+## Credits
+
+Based on [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) by [approved](https://github.com/approved)

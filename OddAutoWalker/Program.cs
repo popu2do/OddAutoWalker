@@ -1,331 +1,483 @@
-﻿using System;
+﻿using LowLevelInput.Hooks;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Timers;
 
 namespace OddAutoWalker
 {
-    public enum LogLevel
-    {
-        Info,
-        Warning,
-        Error
-    }
-
-    public enum VirtualKeyCode
-    {
-        C = 0x43,        // 默认走A激活键（可在配置中修改）
-        RETURN = 0x0D,   // 回车键 - 进入聊天模式
-        ESCAPE = 0x1B    // ESC键 - 退出聊天模式
-    }
-
-    public enum KeyState
-    {
-        Down,
-        Up
-    }
-
-    public class InputManager
-    {
-        [DllImport("user32.dll")]
-        private static extern short GetAsyncKeyState(int vKey);
-
-        public event Action<VirtualKeyCode, KeyState> OnKeyboardEvent;
-
-        private bool[] keyStates = new bool[256];
-        private System.Timers.Timer keyCheckTimer;
-
-        public void Initialize()
-        {
-            keyCheckTimer = new System.Timers.Timer(10); // 检查频率 10ms
-            keyCheckTimer.Elapsed += CheckKeys;
-            keyCheckTimer.Start();
-        }
-
-        private void CheckKeys(object sender, ElapsedEventArgs e)
-        {
-            for (int i = 0; i < 256; i++)
-            {
-                bool isPressed = (GetAsyncKeyState(i) & 0x8000) != 0;
-                
-                if (isPressed != keyStates[i])
-                {
-                    keyStates[i] = isPressed;
-                    
-                    if (Enum.IsDefined(typeof(VirtualKeyCode), i))
-                    {
-                        var keyCode = (VirtualKeyCode)i;
-                        var state = isPressed ? KeyState.Down : KeyState.Up;
-                        OnKeyboardEvent?.Invoke(keyCode, state);
-                    }
-                }
-            }
-        }
-
-        public void Dispose()
-        {
-            keyCheckTimer?.Stop();
-            keyCheckTimer?.Dispose();
-        }
-    }
-
     public class Program
     {
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        private const string ActivePlayerEndpoint = @"https://127.0.0.1:2999/liveclientdata/activeplayer";
+        private const string PlayerListEndpoint = @"https://127.0.0.1:2999/liveclientdata/playerlist";
+        private const string ChampionStatsEndpoint = @"https://raw.communitydragon.org/latest/game/data/characters/";
         private const string SettingsFile = @"settings\settings.json";
-        private const double OrderTickRate = 1d / 30d;
+
+        private static bool HasProcess = false;
+        private static bool IsExiting = false;
+        private static bool IsIntializingValues = false;
+        private static bool IsUpdatingAttackValues = false;
 
         private static readonly Settings CurrentSettings = new Settings();
+        private static readonly WebClient Client = new WebClient();
         private static readonly InputManager InputManager = new InputManager();
-        private static readonly GameStateManager GameStateManager = new GameStateManager();
-        private static readonly ApiManager ApiManager = new ApiManager();
-        private static readonly ChampionDataManager ChampionDataManager = new ChampionDataManager(ApiManager);
-        private static readonly OrbWalkEngine OrbWalkEngine = new OrbWalkEngine(GameStateManager, ChampionDataManager, CurrentSettings);
+        private static Process LeagueProcess = null;
 
-        private static System.Timers.Timer AttackSpeedCacheTimer;
+        private static Timer OrbWalkTimer = new Timer(100d / 3d);
+
+        private static bool OrbWalkerTimerActive = false;
+
+        private static string ActivePlayerName = string.Empty;
+        private static string ChampionName = string.Empty;
+        private static string RawChampionName = string.Empty;
+
+        private static double ClientAttackSpeed = 0.625;
+        private static double ChampionAttackCastTime = 0.625;
+        private static double ChampionAttackTotalTime = 0.625;
+        private static double ChampionAttackSpeedRatio = 0.625;
+        private static double ChampionAttackDelayPercent = 0.3;
+        private static double ChampionAttackDelayScaling = 1.0;
         
-        // 自适应计算函数
-        private static double GetAdaptiveTimerInterval()
+        // 用于检测攻速变化
+        private static double LastAttackSpeed = 0.625;
+        
+        // API状态信息
+        private static int apiCallCount = 0;
+        private static DateTime lastApiCall = DateTime.Now;
+        private static double apiLatency = 0;
+        
+
+        /// <summary>
+        /// This is a buffer to prevent you from accidentally canceling your auto-attack too soon, as a result of fps, ping, or otherwise.
+        /// </summary>
+        private static readonly double WindupBuffer = 1d / 15d;
+
+        // If we're trying to input faster than this, don't
+        private static readonly double MinInputDelay = 1d / 30d;
+
+        // This is honestly just semi-random because we need an interval to run the timer at
+        private static readonly double OrderTickRate = 1d / 30d;
+
+#if DEBUG
+        private static int TimerCallbackCounter = 0;
+#endif
+
+        // These are all in seconds
+        public static double GetSecondsPerAttack() => 1 / ClientAttackSpeed;
+        public static double GetWindupDuration() => (((GetSecondsPerAttack() * ChampionAttackDelayPercent) - ChampionAttackCastTime) * ChampionAttackDelayScaling) + ChampionAttackCastTime;
+        public static double GetBufferedWindupDuration() => GetWindupDuration() + WindupBuffer;
+
+        /// <summary>
+        /// 计算自适应定时器间隔，基于当前攻速动态调整
+        /// </summary>
+        public static double GetAdaptiveTimerInterval()
         {
-            // 基于攻击间隔的合理算法
-            // 目标：每次攻击至少有8-12个检查周期，确保精确度
-            var secondsPerAttack = ChampionDataManager.GetSecondsPerAttack();
+            var secondsPerAttack = GetSecondsPerAttack();
             
-            // 计算理想的检查频率：每次攻击8-12次检查
+            // 目标：每次攻击周期内进行8-12次检查，确保精确度
             var idealChecksPerAttack = 10; // 每次攻击检查10次
-            var idealInterval = secondsPerAttack / idealChecksPerAttack * 1000;
+            var idealIntervalMs = (secondsPerAttack / idealChecksPerAttack) * 1000;
             
-            // 限制范围：最高200Hz(5ms)，最低60Hz(16.67ms)
-            // 200Hz足够精确，60Hz保证基本流畅
-            return Math.Max(Math.Min(idealInterval, 5.0), 16.67);
+            // 限制范围：最高200Hz(5ms)，最低30Hz(33.33ms)
+            // 对于低攻速英雄，降低定时器频率以减少不必要的检查
+            return Math.Max(Math.Min(idealIntervalMs, 5.0), 33.33);
         }
-        
-        // 获取有效参数值（支持auto模式）
-        private static double GetEffectiveTimerInterval()
+
+        /// <summary>
+        /// 获取有效的定时器间隔
+        /// </summary>
+        public static double GetEffectiveTimerInterval()
         {
-            return CurrentSettings.TimerIntervalMs < 0 
+            return CurrentSettings.EnableAdaptiveTimer 
                 ? GetAdaptiveTimerInterval() 
-                : CurrentSettings.TimerIntervalMs;
+                : CurrentSettings.FixedTimerIntervalMs;
         }
 
-        private static void LogMessage(string message, LogLevel level = LogLevel.Info)
+        /// <summary>
+        /// 更新定时器间隔
+        /// </summary>
+        public static void UpdateTimerInterval()
         {
-            if (!CurrentSettings.EnableLogging) return;
-            
-            var timestamp = DateTime.Now.ToString("HH:mm:ss");
-            var levelStr = level.ToString().ToUpper();
-            Console.WriteLine($"[{timestamp}] [{levelStr}] {message}");
-        }
-
-        private static void Cleanup()
-        {
-            LogMessage("正在清理资源...", LogLevel.Info);
-            ApiManager?.Dispose();
-            OrbWalkEngine?.Dispose();
-            LogMessage("资源清理完成", LogLevel.Info);
-        }
-
-        private static async Task StatusDisplayLoop()
-        {
-            while (!GameStateManager.IsExiting)
+            if (OrbWalkTimer != null)
             {
-                try
-                {
-                    if (CurrentSettings.EnableLogging)
-                    {
-                        var status = OrbWalkEngine.IsActive ? "激活" : "未激活";
-                        var gameStatus = GameStateManager.IsGameActive() ? "游戏中" : "游戏外";
-                        var chatStatus = GameStateManager.IsInChatMode ? "聊天中" : "正常";
-                        var attackSpeed = ChampionDataManager.ClientAttackSpeed.ToString("F3");
-                        var windupTime = ChampionDataManager.GetWindupDuration().ToString("F3");
-                        
-                        var timerInfo = CurrentSettings.TimerIntervalMs < 0 
-                            ? $"{GetEffectiveTimerInterval():F2}ms (auto)" 
-                            : $"{CurrentSettings.TimerIntervalMs:F2}ms";
-                        
-                        Console.SetCursorPosition(0, 3);
-                        Console.WriteLine($"状态: {status} | 游戏: {gameStatus} | 聊天: {chatStatus} | 攻速: {attackSpeed} | 定时器: {timerInfo} | 网络: {ApiManager.EstimatedApiLatency:F0}ms");
-                    }
-                    
-                    await Task.Delay(500); // 每500ms更新一次状态
-                }
-                catch (Exception ex)
-                {
-                    LogMessage($"状态显示错误: {ex.Message}", LogLevel.Error);
-                    await Task.Delay(1000);
-                }
+                var newInterval = GetEffectiveTimerInterval();
+                OrbWalkTimer.Interval = newInterval;
             }
+        }
+
+
+        /// <summary>
+        /// 计算移动间隔 - 基于攻击间隔的曲线算法
+        /// </summary>
+        private static double GetMoveInterval()
+        {
+            var secondsPerAttack = GetSecondsPerAttack();
+            var windupDuration = GetWindupDuration();
+            
+            // 曲线算法：移动间隔与攻击间隔的关系
+            // 目标：攻击间隔越长，移动间隔也越长，但增长幅度递减
+            
+            // 1. 基础移动间隔：攻击间隔的30-50%
+            // 使用对数曲线，让移动间隔随攻击间隔增长但增长幅度递减
+            var baseRatio = 0.3 + (0.2 * Math.Log(1 + secondsPerAttack) / Math.Log(2)); // 0.3-0.5范围
+            
+            // 2. 计算移动间隔
+            var moveInterval = secondsPerAttack * baseRatio;
+            
+            // 3. 设置发送移动指令的频率上下限
+            var minInterval = CurrentSettings.MinMoveCommandIntervalSeconds;  // 最小间隔，攻速10.0以上时，就算间隔再小也没意义了，不如站桩
+            var maxInterval = CurrentSettings.MaxMoveCommandIntervalSeconds;   // 最大间隔，防止移动间隔过长影响走位
+            
+            return Math.Max(Math.Min(moveInterval, maxInterval), minInterval);
+        }
+
+        /// <summary>
+        /// 判断是否应该发送移动指令
+        /// </summary>
+        private static bool ShouldSendMoveCommand(DateTime currentTime)
+        {
+            // 1. 检查移动冷却时间
+            var minMoveInterval = CurrentSettings.MinMoveIntervalSeconds;
+            if ((currentTime - lastMoveTime).TotalSeconds < minMoveInterval)
+            {
+                return false;
+            }
+
+            // 2. 如果禁用智能移动逻辑，直接返回true
+            if (!CurrentSettings.EnableSmartMoveLogic)
+            {
+                return true;
+            }
+
+            // 3. 使用曲线算法计算移动间隔
+            var moveInterval = GetMoveInterval();
+            
+            // 4. 检查是否达到移动间隔
+            return (currentTime - lastMoveTime).TotalSeconds >= moveInterval;
         }
 
         public static void Main(string[] args)
-        {
-            // 初始化设置
-            InitializeSettings();
-
-            // 设置控制台
-            Console.Clear();
-            Console.CursorVisible = false;
-
-            // 初始化组件
-            InitializeComponents();
-
-            // 设置事件处理
-            SetupEventHandlers();
-
-            // 启动定时器
-            StartTimers();
-
-            // 显示启动信息
-            Console.WriteLine($"Press and hold '{(VirtualKeyCode)CurrentSettings.ActivationKey}' to activate the Orb Walker");
-
-            // 启动后台任务
-            _ = Task.Run(CheckLeagueProcess);
-            _ = Task.Run(StatusDisplayLoop);
-
-            // 保持程序运行
-            while (true)
-            {
-                Thread.Sleep(1000);
-            }
-        }
-
-        private static void InitializeSettings()
         {
             if (!File.Exists(SettingsFile))
             {
                 Directory.CreateDirectory("settings");
                 CurrentSettings.CreateNew(SettingsFile);
-                LogMessage("创建新的配置文件", LogLevel.Info);
             }
             else
             {
                 CurrentSettings.Load(SettingsFile);
-                LogMessage("加载配置文件成功", LogLevel.Info);
+            }
+
+            ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;
+            Client.Proxy = null;
+
+            Console.Clear();
+            Console.CursorVisible = false;
+
+            InputManager.Initialize();
+            InputManager.OnKeyboardEvent += InputManager_OnKeyboardEvent;
+            InputManager.OnMouseEvent += InputManager_OnMouseEvent;
+
+            OrbWalkTimer.Elapsed += OrbWalkTimer_Elapsed;
+            
+            // 初始化定时器间隔
+            UpdateTimerInterval();
+            
+#if DEBUG
+            Timer callbackTimer = new Timer(16.66);
+            callbackTimer.Elapsed += Timer_CallbackLog;
+#endif
+
+            Timer attackSpeedCacheTimer = new Timer(OrderTickRate);
+            attackSpeedCacheTimer.Elapsed += AttackSpeedCacheTimer_Elapsed;
+
+            attackSpeedCacheTimer.Start();
+            Console.WriteLine($"Press and hold '{(VirtualKeyCode)CurrentSettings.ActivationKey}' to activate the Orb Walker");
+
+            CheckLeagueProcess();
+
+            Console.ReadLine();
+        }
+
+#if DEBUG
+        private static void Timer_CallbackLog(object sender, ElapsedEventArgs e)
+        {
+            if (TimerCallbackCounter > 1 || TimerCallbackCounter < 0)
+            {
+                Console.Clear();
+                Console.WriteLine("Timer Error Detected");
+                throw new Exception("Timers must not run simultaneously");
             }
         }
+#endif
 
-        private static void InitializeComponents()
+        private static void InputManager_OnMouseEvent(VirtualKeyCode key, KeyState state, int x, int y)
         {
-            InputManager.Initialize();
-            OrbWalkEngine.Initialize(GetEffectiveTimerInterval());
         }
-
-        private static void SetupEventHandlers()
-        {
-            InputManager.OnKeyboardEvent += InputManager_OnKeyboardEvent;
-            GameStateManager.OnProcessDetected += OnProcessDetected;
-            GameStateManager.OnProcessLost += OnProcessLost;
-            ApiManager.OnLogMessage += LogMessage;
-            ChampionDataManager.OnLogMessage += LogMessage;
-            OrbWalkEngine.OnLogMessage += LogMessage;
-        }
-
-        private static void StartTimers()
-        {
-            AttackSpeedCacheTimer = new System.Timers.Timer(OrderTickRate);
-            AttackSpeedCacheTimer.Elapsed += AttackSpeedCacheTimer_Elapsed;
-            AttackSpeedCacheTimer.Start();
-        }
-
-        private static void OnProcessDetected()
-        {
-            LogMessage("游戏进程检测成功", LogLevel.Info);
-        }
-
-        private static void OnProcessLost()
-        {
-            LogMessage("游戏进程已退出，正在重新检测...", LogLevel.Warning);
-            ChampionDataManager.Reset();
-            ApiManager.ResetFailureCount();
-            CheckLeagueProcess();
-        }
-
 
         private static void InputManager_OnKeyboardEvent(VirtualKeyCode key, KeyState state)
         {
-            // 处理回车键 - 进入聊天模式
-            if (key == VirtualKeyCode.RETURN && state == KeyState.Down)
-            {
-                GameStateManager.IsInChatMode = true;
-                GameStateManager.LastChatActivity = DateTime.Now;
-                LogMessage("进入聊天模式", LogLevel.Info);
-                return;
-            }
-            
-            // 处理ESC键 - 退出聊天模式
-            if (key == VirtualKeyCode.ESCAPE && state == KeyState.Down)
-            {
-                GameStateManager.IsInChatMode = false;
-                LogMessage("退出聊天模式", LogLevel.Info);
-                return;
-            }
-            
-            // 处理走A激活键 - 延迟激活走A功能
             if (key == (VirtualKeyCode)CurrentSettings.ActivationKey)
             {
                 switch (state)
                 {
-                    case KeyState.Down:
-                        GameStateManager.OrbWalkKeyPressStart = DateTime.Now;
-                        GameStateManager.OrbWalkKeyPressed = true;
+                    case KeyState.Down when !OrbWalkerTimerActive:
+                        OrbWalkerTimerActive = true;
+                        OrbWalkTimer.Start();
                         break;
-                        
-                    case KeyState.Up:
-                        GameStateManager.OrbWalkKeyPressed = false;
-                        // 如果走A已经激活，松开激活键时停用
-                        if (OrbWalkEngine.IsActive)
-                        {
-                            OrbWalkEngine.Stop();
-                        }
+
+                    case KeyState.Up when OrbWalkerTimerActive:
+                        OrbWalkerTimerActive = false;
+                        OrbWalkTimer.Stop();
                         break;
                 }
             }
         }
 
+        // When these DateTime instances are in the past, the action they gate can be taken
+        private static DateTime nextInput = default;
+        private static DateTime nextMove = default;
+        private static DateTime nextAttack = default;
+        
+        // 移动指令冷却时间，防止过于频繁的移动指令
+        private static DateTime lastMoveTime = default;
+        
+        // 移动指令计数器，用于调试和限制
+        private static int moveCommandCount = 0;
+        private static DateTime lastMoveCountReset = DateTime.Now;
 
-        private static async void CheckLeagueProcess()
+        private static readonly Stopwatch owStopWatch = new Stopwatch();
+
+        private static void OrbWalkTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
-            LogMessage("正在检测游戏进程...", LogLevel.Info);
-            while (GameStateManager.LeagueProcess is null || !GameStateManager.HasProcess)
+#if DEBUG
+            owStopWatch.Start();
+            TimerCallbackCounter++;
+#endif
+            if (!HasProcess || IsExiting || GetForegroundWindow() != LeagueProcess.MainWindowHandle)
             {
-                var process = Process.GetProcessesByName("League of Legends").FirstOrDefault();
-                if (process is null || process.HasExited)
+#if DEBUG
+                TimerCallbackCounter--;
+#endif
+
+                return;
+            }
+
+            // Store time at timer tick start into a variable for readability
+            var time = e.SignalTime;
+
+            // 优化后的走A逻辑：减少不必要的移动指令
+            if (nextInput < time)
+            {
+                // 优先攻击
+                if (nextAttack < time)
                 {
-                    LogMessage("未检测到游戏进程，等待中...", LogLevel.Warning);
-                    await Task.Delay(2000); // 添加2秒延迟，避免疯狂循环
+                    // Store current time + input delay so we're aware when we can move next
+                    nextInput = time.AddSeconds(MinInputDelay);
+
+                    // Send attack input
+                    InputSimulator.Keyboard.KeyDown((ushort)DirectInputKeys.DIK_A);
+                    InputSimulator.Mouse.MouseClick(InputSimulator.Mouse.Buttons.Left);
+                    InputSimulator.Keyboard.KeyUp((ushort)DirectInputKeys.DIK_A);
+
+                    // We've sent input now, so we're re-fetching time as I have no idea how long input takes
+                    // I'm assuming it's negligable, but why not
+                    // Please check what the actual difference is if you consider keeping this lol
+                    var attackTime = DateTime.Now;
+
+                    // Store timings for when to next attack / move
+                    // nextMove = attackTime.AddSeconds(GetBufferedWindupDuration());
+                    // 攻击后摇结束后就可以移动，不需要等待整个攻击间隔
+                    nextMove = attackTime.AddSeconds(GetWindupDuration()); // 移除buffer，攻击后摇结束即可移动
+                    nextAttack = attackTime.AddSeconds(GetSecondsPerAttack());
+                    
+                    // 更新最后移动时间，避免攻击后立即移动
+                    lastMoveTime = attackTime;
+                }
+                // 移动逻辑优化：添加冷却时间和智能判断
+                else if (nextMove < time && ShouldSendMoveCommand(time))
+                {
+                    // Store current time + input delay so we're aware when we can attack / move next
+                    nextInput = time.AddSeconds(MinInputDelay);
+
+                    // Send move input
+                    InputSimulator.Mouse.MouseClick(InputSimulator.Mouse.Buttons.Right);
+                    
+                    // 更新最后移动时间和计数器
+                    lastMoveTime = time;
+                    moveCommandCount++;
+                    
+                    // 每5秒重置计数器
+                    if ((time - lastMoveCountReset).TotalSeconds >= 5)
+                    {
+                        lastMoveCountReset = time;
+                        moveCommandCount = 0;
+                    }
+                }
+            }
+#if DEBUG
+            TimerCallbackCounter--;
+            owStopWatch.Reset();
+#endif
+        }
+
+        private static void CheckLeagueProcess()
+        {
+            while (LeagueProcess is null || !HasProcess)
+            {
+                LeagueProcess = Process.GetProcessesByName("League of Legends").FirstOrDefault();
+                if (LeagueProcess is null || LeagueProcess.HasExited)
+                {
                     continue;
                 }
-                GameStateManager.SetProcess(process);
+                HasProcess = true;
+                LeagueProcess.EnableRaisingEvents = true;
+                LeagueProcess.Exited += LeagueProcess_Exited;
             }
         }
 
-
-        private static async void AttackSpeedCacheTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private static void LeagueProcess_Exited(object sender, EventArgs e)
         {
-            if (!GameStateManager.HasProcess || GameStateManager.IsExiting)
-                return;
+            HasProcess = false;
+            LeagueProcess = null;
+            //Console.Clear();
+            Console.WriteLine("League Process Exited");
+            CheckLeagueProcess();
+        }
 
-            // 初始化英雄数据
-            if (string.IsNullOrEmpty(ChampionDataManager.ChampionName))
+        private static void AttackSpeedCacheTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            if (HasProcess && !IsExiting && !IsIntializingValues && !IsUpdatingAttackValues)
             {
-                await ChampionDataManager.InitializeChampionData();
+                IsUpdatingAttackValues = true;
+
+                JToken activePlayerToken = null;
+                try
+                {
+                    var apiStartTime = DateTime.Now;
+                    activePlayerToken = JToken.Parse(Client.DownloadString(ActivePlayerEndpoint));
+                    apiLatency = (DateTime.Now - apiStartTime).TotalMilliseconds;
+                    apiCallCount++;
+                    lastApiCall = DateTime.Now;
+                }
+                catch
+                {
+                    IsUpdatingAttackValues = false;
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(ChampionName))
+                {
+                    ActivePlayerName = activePlayerToken?["summonerName"].ToString();
+                    IsIntializingValues = true;
+                    JToken playerListToken = JToken.Parse(Client.DownloadString(PlayerListEndpoint));
+                    foreach (JToken token in playerListToken)
+                    {
+                        if (token["summonerName"].ToString().Equals(ActivePlayerName))
+                        {
+                            ChampionName = token["championName"].ToString();
+                            string[] rawNameArray = token["rawChampionName"].ToString().Split('_', StringSplitOptions.RemoveEmptyEntries);
+                            RawChampionName = rawNameArray[^1];
+                        }
+                    }
+
+                    if (!GetChampionBaseValues(RawChampionName))
+                    {
+                        IsIntializingValues = false;
+                        IsUpdatingAttackValues = false;
+                        return;
+                    }
+
+#if DEBUG
+                    Console.Title = $"({ActivePlayerName}) {ChampionName}";
+#endif
+
+                    IsIntializingValues = false;
+                }
+
+#if DEBUG
+                Console.SetCursorPosition(0, 0);
+                Console.WriteLine($"{owStopWatch.ElapsedMilliseconds}ms\n" +
+                    $"Player: {ActivePlayerName} | Champion: {ChampionName}\n" +
+                    $"Attack Speed Ratio: {ChampionAttackSpeedRatio:F4}\n" +
+                    $"Windup Percent: {ChampionAttackDelayPercent:F4}\n" +
+                    $"Current AS: {ClientAttackSpeed:F4}\n" +
+                    $"Seconds Per Attack: {GetSecondsPerAttack():F4}s\n" +
+                    $"Windup Duration: {GetWindupDuration():F4}s + {WindupBuffer:F3}s buffer\n" +
+                    $"Attack Down Time: {(GetSecondsPerAttack() - GetWindupDuration()):F4}s\n" +
+                    $"Timer Interval: {OrbWalkTimer.Interval:F2}ms\n" +
+                    $"OrbWalker Active: {OrbWalkerTimerActive}");
+#endif
+
+                ClientAttackSpeed = activePlayerToken["championStats"]["attackSpeed"].Value<double>();
+                
+                // 检测攻速变化，如果变化超过阈值且启用自适应定时器则更新定时器间隔
+                if (CurrentSettings.EnableAdaptiveTimer && Math.Abs(ClientAttackSpeed - LastAttackSpeed) > 0.01) // 0.01的阈值避免微小变化
+                {
+                    UpdateTimerInterval();
+                    LastAttackSpeed = ClientAttackSpeed;
+                }
+                
+                IsUpdatingAttackValues = false;
+            }
+        }
+
+        private static bool GetChampionBaseValues(string championName)
+        {
+            string lowerChampionName = championName.ToLower();
+            JToken championBinToken = null;
+            try
+            {
+                championBinToken = JToken.Parse(Client.DownloadString($"{ChampionStatsEndpoint}{lowerChampionName}/{lowerChampionName}.bin.json"));
+            }
+            catch
+            {
+                return false;
+            }
+            JToken championRootStats = championBinToken[$"Characters/{championName}/CharacterRecords/Root"];
+            ChampionAttackSpeedRatio = championRootStats["attackSpeedRatio"].Value<double>(); ;
+
+            JToken championBasicAttackInfoToken = championRootStats["basicAttack"];
+            JToken championAttackDelayOffsetToken = championBasicAttackInfoToken["mAttackDelayCastOffsetPercent"];
+            JToken championAttackDelayOffsetSpeedRatioToken = championBasicAttackInfoToken["mAttackDelayCastOffsetPercentAttackSpeedRatio"];
+
+            if (championAttackDelayOffsetSpeedRatioToken?.Value<double?>() != null)
+            {
+                ChampionAttackDelayScaling = championAttackDelayOffsetSpeedRatioToken.Value<double>();
+            }
+
+            if (championAttackDelayOffsetToken?.Value<double?>() == null)
+            {
+                JToken attackTotalTimeToken = championBasicAttackInfoToken["mAttackTotalTime"];
+                JToken attackCastTimeToken = championBasicAttackInfoToken["mAttackCastTime"];
+
+                if (attackTotalTimeToken?.Value<double?>() == null && attackCastTimeToken?.Value<double?>() == null)
+                {
+                    string attackName = championBasicAttackInfoToken["mAttackName"].ToString();
+                    string attackSpell = $"Characters/{attackName.Split(new[] { "BasicAttack" }, StringSplitOptions.RemoveEmptyEntries)[0]}/Spells/{attackName}";
+                    ChampionAttackDelayPercent += championBinToken[attackSpell]["mSpell"]["delayCastOffsetPercent"].Value<double>();
+                }
+                else
+                {
+                    ChampionAttackTotalTime = attackTotalTimeToken.Value<double>();
+                    ChampionAttackCastTime = attackCastTimeToken.Value<double>(); ;
+
+                    ChampionAttackDelayPercent = ChampionAttackCastTime / ChampionAttackTotalTime;
+                }
             }
             else
             {
-                // 更新攻速
-                await ChampionDataManager.UpdateAttackSpeed();
-                
-                // 如果启用自适应且攻速改变，重新设置定时器
-                if (CurrentSettings.TimerIntervalMs < 0)
-                {
-                    var newInterval = GetAdaptiveTimerInterval();
-                    OrbWalkEngine.UpdateTimerInterval(newInterval);
-                }
+                ChampionAttackDelayPercent += championAttackDelayOffsetToken.Value<double>(); ;
             }
-        }
 
+            return true;
+        }
     }
 }
