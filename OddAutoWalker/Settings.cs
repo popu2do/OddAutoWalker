@@ -111,31 +111,58 @@ namespace OddAutoWalker
 
         public void Load(string path)
         {
-            string content = File.ReadAllText(path);
-            
-            // 移除注释行，只保留JSON内容
-            var lines = content.Split('\n');
-            var jsonLines = new List<string>();
-            
-            foreach (var line in lines)
+            try
             {
-                var trimmedLine = line.Trim();
-                if (!trimmedLine.StartsWith("//") && !string.IsNullOrEmpty(trimmedLine))
+                if (!File.Exists(path))
                 {
-                    jsonLines.Add(line);
+                    // 如果文件不存在，使用默认值
+                    return;
                 }
+
+                string content = File.ReadAllText(path);
+                
+                // 如果文件为空，使用默认值
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    return;
+                }
+                
+                // 移除注释行，只保留JSON内容
+                var lines = content.Split('\n');
+                var jsonLines = new List<string>();
+                
+                foreach (var line in lines)
+                {
+                    var trimmedLine = line.Trim();
+                    if (!trimmedLine.StartsWith("//") && !string.IsNullOrEmpty(trimmedLine))
+                    {
+                        jsonLines.Add(line);
+                    }
+                }
+                
+                string jsonContent = string.Join("\n", jsonLines);
+                
+                // 如果过滤后没有JSON内容，使用默认值
+                if (string.IsNullOrWhiteSpace(jsonContent))
+                {
+                    return;
+                }
+                
+                var loadedSettings = JsonSerializer.Deserialize<Settings>(jsonContent);
+                
+                ActivationKey = loadedSettings.ActivationKey;
+                
+                // 向后兼容：如果新字段不存在，使用默认值
+                MinInputDelayMs = loadedSettings.MinInputDelayMs >= 0 ? loadedSettings.MinInputDelayMs : -1;
+                EnableLogging = loadedSettings.EnableLogging;
+                ApiRetryCount = loadedSettings.ApiRetryCount > 0 ? loadedSettings.ApiRetryCount : 3;
+                TimerIntervalMs = loadedSettings.TimerIntervalMs >= 0 ? loadedSettings.TimerIntervalMs : -1;
             }
-            
-            string jsonContent = string.Join("\n", jsonLines);
-            var loadedSettings = JsonSerializer.Deserialize<Settings>(jsonContent);
-            
-            ActivationKey = loadedSettings.ActivationKey;
-            
-            // 向后兼容：如果新字段不存在，使用默认值
-            MinInputDelayMs = loadedSettings.MinInputDelayMs >= 0 ? loadedSettings.MinInputDelayMs : -1;
-            EnableLogging = loadedSettings.EnableLogging;
-            ApiRetryCount = loadedSettings.ApiRetryCount > 0 ? loadedSettings.ApiRetryCount : 3;
-            TimerIntervalMs = loadedSettings.TimerIntervalMs >= 0 ? loadedSettings.TimerIntervalMs : -1;
+            catch (Exception)
+            {
+                // 如果解析失败，使用默认值
+                return;
+            }
         }
     }
 }
