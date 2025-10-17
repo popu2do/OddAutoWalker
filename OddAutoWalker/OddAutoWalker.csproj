@@ -17,7 +17,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DefineConstants>$(DefineConstants);AVX512</DefineConstants>
+    <DefineConstants>$(DefineConstants);AVX512;AVX2;SSE4_1;SSE4_2;FMA;BMI2</DefineConstants>
   </PropertyGroup>
 
 </Project>

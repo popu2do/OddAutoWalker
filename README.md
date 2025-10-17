@@ -28,15 +28,7 @@ Using [LowLevelInput.Net](https://github.com/michel-pi/LowLevelInput.Net), `OddA
 
 ---
 
-## 如何获取程序
-
-### 方法一：直接下载（推荐）
-1. 点击右上角的 **"Code"** 按钮
-2. 选择 **"Download ZIP"** 下载压缩包
-3. 解压到任意文件夹
-4. 双击 `OddAutoWalker.exe` 运行
-
-### 方法二：编译源码
+### 编译
 如果你想要最新版本或自定义修改：
 
 **系统要求：**
@@ -70,10 +62,8 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 1. **启动程序**
    - 双击 `OddAutoWalker.exe` 运行程序
-   - 同时启动英雄联盟游戏
 
 2. **进入游戏**
-   - 选择任意模式（除了云顶之弈）
    - 等待进入游戏
 
 3. **激活走A**
@@ -81,12 +71,18 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
    - 松开 **'C'** 键停止走A
 
 4. **聊天模式**
-   - 按 **回车键** 进入聊天模式（走A暂停）
+   - 按 **回车键** 进入聊天模式（走A延迟激活）
    - 按 **ESC键** 退出聊天模式
+   - 聊天模式30秒后退出
 
-### 功能特点
-- ✅ 自动检测游戏进程
+### 修改特点
 - ✅ 智能计算攻击间隔
-- ✅ 支持聊天模式暂停
-- ✅ 延迟激活防止误触
+- ✅ 聊天模式延迟将延迟激活走a（30秒超时）
+- ✅ 150ms延迟激活防止误触影响输入
 - ✅ 自适应定时器优化
+
+---
+
+## 致谢
+
+基于 [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) 进行修改。
