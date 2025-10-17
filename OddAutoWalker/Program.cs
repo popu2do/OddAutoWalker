@@ -282,9 +282,6 @@ namespace OddAutoWalker
                     // 等待攻击完成才能移动，避免取消攻击
                     nextMove = attackTime.AddSeconds(GetBufferedWindupDuration()); // 前摇+buffer时间
                     nextAttack = attackTime.AddSeconds(GetSecondsPerAttack());
-                    
-                    // 不立即更新lastMoveTime，让移动逻辑自然检查间隔
-                    // lastMoveTime 会在实际移动时更新
                 }
                 // 移动逻辑优化：添加冷却时间和智能判断
                 else if (nextMove < time && ShouldSendMoveCommand(time))
