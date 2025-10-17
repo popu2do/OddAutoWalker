@@ -28,93 +28,65 @@ Using [LowLevelInput.Net](https://github.com/michel-pi/LowLevelInput.Net), `OddA
 
 ---
 
-## How To Get This Program
+## 如何获取程序
 
-If you have not already, you will need to grab the latest version from here: [Latest Release](https://github.com/approved/OddAutoWalker/releases)
+### 方法一：直接下载（推荐）
+1. 点击右上角的 **"Code"** 按钮
+2. 选择 **"Download ZIP"** 下载压缩包
+3. 解压到任意文件夹
+4. 双击 `OddAutoWalker.exe` 运行
 
-## Compilation
+### 方法二：编译源码
+如果你想要最新版本或自定义修改：
 
-### Prerequisites
-* Windows 10/11 x64
-* .NET 9.0 SDK or later
-* Visual Studio 2022 (optional, for IDE development)
+**系统要求：**
+- Windows 10/11 系统
+- 下载安装 [.NET 9.0 SDK](https://dotnet.microsoft.com/download)
 
-### Basic Compilation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/approved/OddAutoWalker.git
-   cd OddAutoWalker
-   ```
-
-2. **Restore dependencies**
-   ```bash
-   dotnet restore
-   ```
-
-3. **Build Release version**
+**编译步骤：**
+1. 下载源码（方法同上）
+2. 解压后打开命令行，进入项目文件夹
+3. 运行以下命令：
    ```bash
    dotnet build -c Release
    ```
+4. 编译完成后，程序在 `bin\Release\net9.0\win-x64\` 文件夹中
 
-4. **Run the program**
-   ```bash
-   dotnet run -c Release
-   ```
-
-### Advanced Compilation (CPU Optimization)
-
-If your CPU supports modern instruction sets (AVX-512, AVX2), you can create an optimized single-file executable:
-
+**生成单文件版本（可选）：**
 ```bash
-# Clean previous builds
-dotnet clean -c Release
-
-# Publish optimized single-file executable
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:PublishTrimmed=true -p:TrimMode=partial
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true
 ```
-
-**Output location**: `bin\Release\net9.0\win-x64\publish\OddAutoWalker.exe`
-
-### CPU Instruction Set Support
-
-The program automatically detects and utilizes available CPU instruction sets:
-- **AVX-512**: Intel Skylake-X+ or AMD Zen 4+ (best performance)
-- **AVX2**: Intel Haswell+ or AMD Excavator+ (good performance)
-- **SSE4.2**: Most modern CPUs (baseline performance)
-
-### Compilation Options
-
-| Option | Description |
-|--------|-------------|
-| `PublishSingleFile` | Creates a single executable file |
-| `PublishReadyToRun` | Pre-compiles to native code for faster startup |
-| `PublishTrimmed` | Removes unused code to reduce file size |
-| `SelfContained` | Includes .NET runtime (no installation required) |
+生成的单文件在 `bin\Release\net9.0\win-x64\publish\OddAutoWalker.exe`
 
 ---
 
-## Using This Program
-<details>
-    <summary>Important Note</summary>
-    <p>
-        <i>
-            <b>
-                While this program is usable, it is intended to be used as reference for both a better implementation and your own project.
-                <br>
-                <br>
-                If you don't want to mess with the program yourself, you must have your "Player Attack Move" bound to 'A'. <br>
-                This setting can be found in the in-game settings at Settings->Hotkeys->Player Movement.
-            </b>
-        </i>
-    </p>
-</details>
+## 使用方法
 
----
+### 重要说明
+- 程序需要在游戏内将 **"玩家攻击移动"** 绑定到 **'A'** 键
+- 设置位置：游戏内 → 设置 → 热键 → 玩家移动
 
-Steps:
+### 使用步骤
 
-1. Launch OddAutoWalker.exe and League of Legends
-2. Queue up in any mode, excluding Team Fight Tactics, and wait until you're in game
-3. Press and hold 'C' to activate the auto walker
-4. Deactivate by releasing 'C'
+1. **启动程序**
+   - 双击 `OddAutoWalker.exe` 运行程序
+   - 同时启动英雄联盟游戏
+
+2. **进入游戏**
+   - 选择任意模式（除了云顶之弈）
+   - 等待进入游戏
+
+3. **激活走A**
+   - 按住 **'C'** 键激活自动走A
+   - 松开 **'C'** 键停止走A
+
+4. **聊天模式**
+   - 按 **回车键** 进入聊天模式（走A暂停）
+   - 按 **ESC键** 退出聊天模式
+
+### 功能特点
+- ✅ 自动检测游戏进程
+- ✅ 智能计算攻击间隔
+- ✅ 支持聊天模式暂停
+- ✅ 延迟激活防止误触
+- ✅ 自适应定时器优化
