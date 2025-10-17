@@ -22,7 +22,9 @@ namespace OddAutoWalker
 
     public enum VirtualKeyCode
     {
-        C = 0x43
+        C = 0x43,        // 默认走A激活键（可在配置中修改）
+        RETURN = 0x0D,   // 回车键 - 进入聊天模式
+        ESCAPE = 0x1B    // ESC键 - 退出聊天模式
     }
 
     public enum KeyState
@@ -98,6 +100,12 @@ namespace OddAutoWalker
         private static Timer OrbWalkTimer;
 
         private static bool OrbWalkerTimerActive = false;
+
+        // 聊天模式相关变量
+        private static bool IsInChatMode = false;
+        private static DateTime LastChatActivity = DateTime.MinValue;
+        private static DateTime OrbWalkKeyPressStart = DateTime.MinValue;  // 走A激活键按下开始时间
+        private static bool OrbWalkKeyPressed = false;                     // 走A激活键是否被按下
 
         private static string ActivePlayerName = string.Empty;
         private static string ChampionName = string.Empty;
@@ -207,6 +215,7 @@ namespace OddAutoWalker
                     {
                         var status = OrbWalkerTimerActive ? "激活" : "未激活";
                         var gameStatus = IsGameActive() ? "游戏中" : "游戏外";
+                        var chatStatus = IsInChatMode ? "聊天中" : "正常";
                         var attackSpeed = ClientAttackSpeed.ToString("F3");
                         var windupTime = GetWindupDuration().ToString("F3");
                         
@@ -215,7 +224,7 @@ namespace OddAutoWalker
                             : $"{CurrentSettings.TimerIntervalMs:F2}ms";
                         
                         Console.SetCursorPosition(0, 3);
-                        Console.WriteLine($"状态: {status} | 游戏: {gameStatus} | 攻速: {attackSpeed} | 定时器: {timerInfo} | 网络: {estimatedApiLatency:F0}ms");
+                        Console.WriteLine($"状态: {status} | 游戏: {gameStatus} | 聊天: {chatStatus} | 攻速: {attackSpeed} | 定时器: {timerInfo} | 网络: {estimatedApiLatency:F0}ms");
                     }
                     
                     await Task.Delay(500); // 每500ms更新一次状态
@@ -300,20 +309,42 @@ namespace OddAutoWalker
 
         private static void InputManager_OnKeyboardEvent(VirtualKeyCode key, KeyState state)
         {
+            // 处理回车键 - 进入聊天模式
+            if (key == VirtualKeyCode.RETURN && state == KeyState.Down)
+            {
+                IsInChatMode = true;
+                LastChatActivity = DateTime.Now;
+                LogMessage("进入聊天模式", LogLevel.Info);
+                return;
+            }
+            
+            // 处理ESC键 - 退出聊天模式
+            if (key == VirtualKeyCode.ESCAPE && state == KeyState.Down)
+            {
+                IsInChatMode = false;
+                LogMessage("退出聊天模式", LogLevel.Info);
+                return;
+            }
+            
+            // 处理走A激活键 - 延迟激活走A功能
             if (key == (VirtualKeyCode)CurrentSettings.ActivationKey)
             {
                 switch (state)
                 {
-                    case KeyState.Down when !OrbWalkerTimerActive:
-                        OrbWalkerTimerActive = true;
-                        OrbWalkTimer.Start();
-                        LogMessage("走A功能已激活", LogLevel.Info);
+                    case KeyState.Down:
+                        OrbWalkKeyPressStart = DateTime.Now;
+                        OrbWalkKeyPressed = true;
                         break;
-
-                    case KeyState.Up when OrbWalkerTimerActive:
-                        OrbWalkerTimerActive = false;
-                        OrbWalkTimer.Stop();
-                        LogMessage("走A功能已停用", LogLevel.Info);
+                        
+                    case KeyState.Up:
+                        OrbWalkKeyPressed = false;
+                        // 如果走A已经激活，松开激活键时停用
+                        if (OrbWalkerTimerActive)
+                        {
+                            OrbWalkerTimerActive = false;
+                            OrbWalkTimer.Stop();
+                            LogMessage("走A功能已停用", LogLevel.Info);
+                        }
                         break;
                 }
             }
@@ -325,6 +356,30 @@ namespace OddAutoWalker
         private static DateTime nextAttack = default;
 
         private static readonly Stopwatch owStopWatch = new Stopwatch();
+
+        private static void CheckChatModeAndActivation()
+        {
+            var now = DateTime.Now;
+            
+            // 检查聊天模式超时（30秒）
+            if (IsInChatMode && (now - LastChatActivity).TotalSeconds > 30)
+            {
+                IsInChatMode = false;
+                LogMessage("聊天模式超时，自动退出", LogLevel.Info);
+            }
+            
+            // 检查走A激活键延迟激活
+            if (OrbWalkKeyPressed && !OrbWalkerTimerActive && !IsInChatMode)
+            {
+                var holdTime = (now - OrbWalkKeyPressStart).TotalMilliseconds;
+                if (holdTime >= 150) // 150ms延迟
+                {
+                    OrbWalkerTimerActive = true;
+                    OrbWalkTimer.Start();
+                    LogMessage("走A功能已激活（延迟激活）", LogLevel.Info);
+                }
+            }
+        }
 
         private static void OrbWalkTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
@@ -340,6 +395,9 @@ namespace OddAutoWalker
 #endif
                 return;
             }
+
+            // 检查聊天模式超时和C键延迟激活
+            CheckChatModeAndActivation();
 
             // Store time at timer tick start into a variable for readability
             var time = e.SignalTime;
@@ -425,6 +483,11 @@ namespace OddAutoWalker
             ChampionAttackSpeedRatio = 0.625;
             ChampionAttackDelayPercent = 0.3;
             ChampionAttackDelayScaling = 1.0;
+            
+            // 重置聊天模式和走A激活键状态
+            IsInChatMode = false;
+            LastChatActivity = DateTime.MinValue;
+            OrbWalkKeyPressed = false;
             
             // 重置API失败计数
             apiFailureCount = 0;
