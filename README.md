@@ -51,6 +51,9 @@ dotnet build --configuration Release
 
 # Publish for Windows x64
 dotnet publish --configuration Release --runtime win10-x64 --self-contained true
+
+# Create single file executable
+dotnet publish --configuration Release --runtime win10-x64 --self-contained true --property:PublishSingleFile=true
 ```
 
 ---

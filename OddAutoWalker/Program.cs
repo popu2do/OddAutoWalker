@@ -75,9 +75,11 @@ namespace OddAutoWalker
         public static double GetBufferedWindupDuration() => GetWindupDuration() + WindupBuffer;
 
         /// <summary>
-        /// 计算自适应定时器间隔，基于当前攻速动态调整
+        /// 计算计算刻间隔（Tick Interval）
+        /// 自适应，基于系统性能和攻速动态调整
         /// </summary>
-        public static double GetAdaptiveTimerInterval()
+        /// <returns>计算刻间隔（毫秒）</returns>
+        public static double GetTickInterval()
         {
             var secondsPerAttack = GetSecondsPerAttack();
             
@@ -85,41 +87,39 @@ namespace OddAutoWalker
             var idealChecksPerAttack = 10; // 每次攻击检查10次
             var idealIntervalMs = (secondsPerAttack / idealChecksPerAttack) * 1000;
             
-            // 限制范围：最高200Hz(5ms)，最低30Hz(33.33ms)
-            // 对于低攻速英雄，降低定时器频率以减少不必要的检查
-            return Math.Max(Math.Min(idealIntervalMs, 5.0), 33.33);
+            // 上限：受 MaxCheckFrequencyHz 限制，防止CPU占用过高
+            // 例如：120Hz = 1000ms / 120 = 8.33ms
+            var maxFrequencyHz = CurrentSettings.MaxCheckFrequencyHz;
+            var minIntervalMs = 1000.0 / maxFrequencyHz;
+            
+            // 下限：根据攻速动态调整，攻速越高，检查间隔越短
+            // 但不能超过最大频率限制
+            var tickIntervalMs = Math.Max(idealIntervalMs, minIntervalMs);
+            
+            return tickIntervalMs;
         }
 
         /// <summary>
-        /// 获取有效的定时器间隔
+        /// 更新计算刻间隔
         /// </summary>
-        public static double GetEffectiveTimerInterval()
-        {
-            return CurrentSettings.EnableAdaptiveTimer 
-                ? GetAdaptiveTimerInterval() 
-                : CurrentSettings.FixedTimerIntervalMs;
-        }
-
-        /// <summary>
-        /// 更新定时器间隔
-        /// </summary>
-        public static void UpdateTimerInterval()
+        public static void UpdateTickInterval()
         {
             if (OrbWalkTimer != null)
             {
-                var newInterval = GetEffectiveTimerInterval();
+                var newInterval = GetTickInterval();
                 OrbWalkTimer.Interval = newInterval;
             }
         }
 
 
         /// <summary>
-        /// 计算移动间隔 - 基于攻击间隔的曲线算法
+        /// 计算智能移动间隔
+        /// 基于攻速智能调整，受 min/max 限制
         /// </summary>
-        private static double GetMoveInterval()
+        /// <returns>移动间隔（秒）</returns>
+        private static double GetSmartMoveInterval()
         {
             var secondsPerAttack = GetSecondsPerAttack();
-            var windupDuration = GetWindupDuration();
             
             // 曲线算法：移动间隔与攻击间隔的关系
             // 目标：攻击间隔越长，移动间隔也越长，但增长幅度递减
@@ -131,35 +131,23 @@ namespace OddAutoWalker
             // 2. 计算移动间隔
             var moveInterval = secondsPerAttack * baseRatio;
             
-            // 3. 设置发送移动指令的频率上下限
-            var minInterval = CurrentSettings.MinMoveCommandIntervalSeconds;  // 最小间隔，攻速10.0以上时，就算间隔再小也没意义了，不如站桩
-            var maxInterval = CurrentSettings.MaxMoveCommandIntervalSeconds;   // 最大间隔，防止移动间隔过长影响走位
+            // 3. 限制范围：确保在 min/max 之间
+            var minInterval = CurrentSettings.MinMoveCommandIntervalSeconds;  // 防止过于频繁导致掉线
+            var maxInterval = CurrentSettings.MaxMoveCommandIntervalSeconds;  // 防止间隔过长影响走位
             
             return Math.Max(Math.Min(moveInterval, maxInterval), minInterval);
         }
 
         /// <summary>
         /// 判断是否应该发送移动指令
+        /// 检查是否满足计算刻时机和移动间隔要求
         /// </summary>
         private static bool ShouldSendMoveCommand(DateTime currentTime)
         {
-            // 1. 检查移动冷却时间
-            var minMoveInterval = CurrentSettings.MinMoveIntervalSeconds;
-            if ((currentTime - lastMoveTime).TotalSeconds < minMoveInterval)
-            {
-                return false;
-            }
-
-            // 2. 如果禁用智能移动逻辑，直接返回true
-            if (!CurrentSettings.EnableSmartMoveLogic)
-            {
-                return true;
-            }
-
-            // 3. 使用曲线算法计算移动间隔
-            var moveInterval = GetMoveInterval();
+            // 使用智能移动逻辑计算移动间隔
+            var moveInterval = GetSmartMoveInterval();
             
-            // 4. 检查是否达到移动间隔
+            // 检查是否达到移动间隔
             return (currentTime - lastMoveTime).TotalSeconds >= moveInterval;
         }
 
@@ -187,8 +175,8 @@ namespace OddAutoWalker
 
             OrbWalkTimer.Elapsed += OrbWalkTimer_Elapsed;
             
-            // 初始化定时器间隔
-            UpdateTimerInterval();
+            // 初始化计算刻间隔
+            UpdateTickInterval();
             
 #if DEBUG
             Timer callbackTimer = new Timer(16.66);
@@ -259,14 +247,12 @@ namespace OddAutoWalker
         {
 #if DEBUG
             owStopWatch.Start();
-            TimerCallbackCounter++;
 #endif
             if (!HasProcess || IsExiting || GetForegroundWindow() != LeagueProcess.MainWindowHandle)
             {
 #if DEBUG
-                TimerCallbackCounter--;
+                owStopWatch.Reset();
 #endif
-
                 return;
             }
 
@@ -293,13 +279,12 @@ namespace OddAutoWalker
                     var attackTime = DateTime.Now;
 
                     // Store timings for when to next attack / move
-                    // nextMove = attackTime.AddSeconds(GetBufferedWindupDuration());
-                    // 攻击后摇结束后就可以移动，不需要等待整个攻击间隔
-                    nextMove = attackTime.AddSeconds(GetWindupDuration()); // 移除buffer，攻击后摇结束即可移动
+                    // 等待攻击完成才能移动，避免取消攻击
+                    nextMove = attackTime.AddSeconds(GetBufferedWindupDuration()); // 前摇+buffer时间
                     nextAttack = attackTime.AddSeconds(GetSecondsPerAttack());
                     
-                    // 更新最后移动时间，避免攻击后立即移动
-                    lastMoveTime = attackTime;
+                    // 不立即更新lastMoveTime，让移动逻辑自然检查间隔
+                    // lastMoveTime 会在实际移动时更新
                 }
                 // 移动逻辑优化：添加冷却时间和智能判断
                 else if (nextMove < time && ShouldSendMoveCommand(time))
@@ -323,7 +308,6 @@ namespace OddAutoWalker
                 }
             }
 #if DEBUG
-            TimerCallbackCounter--;
             owStopWatch.Reset();
 #endif
         }
@@ -404,24 +388,20 @@ namespace OddAutoWalker
 
 #if DEBUG
                 Console.SetCursorPosition(0, 0);
-                Console.WriteLine($"{owStopWatch.ElapsedMilliseconds}ms\n" +
-                    $"Player: {ActivePlayerName} | Champion: {ChampionName}\n" +
-                    $"Attack Speed Ratio: {ChampionAttackSpeedRatio:F4}\n" +
-                    $"Windup Percent: {ChampionAttackDelayPercent:F4}\n" +
-                    $"Current AS: {ClientAttackSpeed:F4}\n" +
-                    $"Seconds Per Attack: {GetSecondsPerAttack():F4}s\n" +
-                    $"Windup Duration: {GetWindupDuration():F4}s + {WindupBuffer:F3}s buffer\n" +
-                    $"Attack Down Time: {(GetSecondsPerAttack() - GetWindupDuration()):F4}s\n" +
-                    $"Timer Interval: {OrbWalkTimer.Interval:F2}ms\n" +
-                    $"OrbWalker Active: {OrbWalkerTimerActive}");
+                Console.WriteLine($"Stopwatch: {owStopWatch.ElapsedMilliseconds}ms");
+                Console.WriteLine($"Player: {ActivePlayerName} | Champion: {ChampionName}");
+                Console.WriteLine($"AS: {ClientAttackSpeed:F4} | SPA: {GetSecondsPerAttack():F4}s | Windup: {GetWindupDuration():F4}s");
+                Console.WriteLine($"Tick: {OrbWalkTimer.Interval:F1}ms ({1000.0 / OrbWalkTimer.Interval:F1}Hz) | Move: {GetSmartMoveInterval() * 1000:F1}ms");
+                Console.WriteLine($"Active: {OrbWalkerTimerActive} | API Calls: {apiCallCount} | Latency: {apiLatency:F1}ms");
+                Console.WriteLine($"Move Commands: {moveCommandCount}/5s");
 #endif
 
                 ClientAttackSpeed = activePlayerToken["championStats"]["attackSpeed"].Value<double>();
                 
-                // 检测攻速变化，如果变化超过阈值且启用自适应定时器则更新定时器间隔
-                if (CurrentSettings.EnableAdaptiveTimer && Math.Abs(ClientAttackSpeed - LastAttackSpeed) > 0.01) // 0.01的阈值避免微小变化
+                // 检测攻速变化，如果变化超过阈值则更新计算刻间隔
+                if (Math.Abs(ClientAttackSpeed - LastAttackSpeed) > 0.01) // 0.01的阈值避免微小变化
                 {
-                    UpdateTimerInterval();
+                    UpdateTickInterval();
                     LastAttackSpeed = ClientAttackSpeed;
                 }
                 
@@ -453,28 +433,28 @@ namespace OddAutoWalker
                 ChampionAttackDelayScaling = championAttackDelayOffsetSpeedRatioToken.Value<double>();
             }
 
-            if (championAttackDelayOffsetToken?.Value<double?>() == null)
+            // 始终尝试获取攻击时间数据
+            JToken attackTotalTimeToken = championBasicAttackInfoToken["mAttackTotalTime"];
+            JToken attackCastTimeToken = championBasicAttackInfoToken["mAttackCastTime"];
+
+            if (attackTotalTimeToken?.Value<double?>() != null && attackCastTimeToken?.Value<double?>() != null)
             {
-                JToken attackTotalTimeToken = championBasicAttackInfoToken["mAttackTotalTime"];
-                JToken attackCastTimeToken = championBasicAttackInfoToken["mAttackCastTime"];
-
-                if (attackTotalTimeToken?.Value<double?>() == null && attackCastTimeToken?.Value<double?>() == null)
-                {
-                    string attackName = championBasicAttackInfoToken["mAttackName"].ToString();
-                    string attackSpell = $"Characters/{attackName.Split(new[] { "BasicAttack" }, StringSplitOptions.RemoveEmptyEntries)[0]}/Spells/{attackName}";
-                    ChampionAttackDelayPercent += championBinToken[attackSpell]["mSpell"]["delayCastOffsetPercent"].Value<double>();
-                }
-                else
-                {
-                    ChampionAttackTotalTime = attackTotalTimeToken.Value<double>();
-                    ChampionAttackCastTime = attackCastTimeToken.Value<double>(); ;
-
-                    ChampionAttackDelayPercent = ChampionAttackCastTime / ChampionAttackTotalTime;
-                }
+                // 有完整的攻击时间数据
+                ChampionAttackTotalTime = attackTotalTimeToken.Value<double>();
+                ChampionAttackCastTime = attackCastTimeToken.Value<double>();
+                ChampionAttackDelayPercent = ChampionAttackCastTime / ChampionAttackTotalTime;
+            }
+            else if (championAttackDelayOffsetToken?.Value<double?>() != null)
+            {
+                // 使用延迟偏移百分比
+                ChampionAttackDelayPercent += championAttackDelayOffsetToken.Value<double>();
             }
             else
             {
-                ChampionAttackDelayPercent += championAttackDelayOffsetToken.Value<double>(); ;
+                // 尝试从攻击技能获取
+                string attackName = championBasicAttackInfoToken["mAttackName"].ToString();
+                string attackSpell = $"Characters/{attackName.Split(new[] { "BasicAttack" }, StringSplitOptions.RemoveEmptyEntries)[0]}/Spells/{attackName}";
+                ChampionAttackDelayPercent += championBinToken[attackSpell]["mSpell"]["delayCastOffsetPercent"].Value<double>();
             }
 
             return true;
