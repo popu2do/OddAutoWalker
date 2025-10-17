@@ -32,13 +32,65 @@ Using [LowLevelInput.Net](https://github.com/michel-pi/LowLevelInput.Net), `OddA
 
 If you have not already, you will need to grab the latest version from here: [Latest Release](https://github.com/approved/OddAutoWalker/releases)
 
-To Compile Yourself:
+## Compilation
 
-* Your computer must be running Windows 10 version 1703 or higher
-* Download the latest version of [Visual Studio](https://visualstudio.microsoft.com/downloads/) (VS)
-* Make sure the .netcore 3.1 SDK is installed if it was not installed with VS
-* Clone or Download the Source
-* Open `OddAutoWalker.sln` with VS to build and run the project
+### Prerequisites
+* Windows 10/11 x64
+* .NET 9.0 SDK or later
+* Visual Studio 2022 (optional, for IDE development)
+
+### Basic Compilation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/approved/OddAutoWalker.git
+   cd OddAutoWalker
+   ```
+
+2. **Restore dependencies**
+   ```bash
+   dotnet restore
+   ```
+
+3. **Build Release version**
+   ```bash
+   dotnet build -c Release
+   ```
+
+4. **Run the program**
+   ```bash
+   dotnet run -c Release
+   ```
+
+### Advanced Compilation (CPU Optimization)
+
+If your CPU supports modern instruction sets (AVX-512, AVX2), you can create an optimized single-file executable:
+
+```bash
+# Clean previous builds
+dotnet clean -c Release
+
+# Publish optimized single-file executable
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:PublishTrimmed=true -p:TrimMode=partial
+```
+
+**Output location**: `bin\Release\net9.0\win-x64\publish\OddAutoWalker.exe`
+
+### CPU Instruction Set Support
+
+The program automatically detects and utilizes available CPU instruction sets:
+- **AVX-512**: Intel Skylake-X+ or AMD Zen 4+ (best performance)
+- **AVX2**: Intel Haswell+ or AMD Excavator+ (good performance)
+- **SSE4.2**: Most modern CPUs (baseline performance)
+
+### Compilation Options
+
+| Option | Description |
+|--------|-------------|
+| `PublishSingleFile` | Creates a single executable file |
+| `PublishReadyToRun` | Pre-compiles to native code for faster startup |
+| `PublishTrimmed` | Removes unused code to reduce file size |
+| `SelfContained` | Includes .NET runtime (no installation required) |
 
 ---
 
