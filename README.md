@@ -49,9 +49,6 @@ dotnet restore
 # Build the project
 dotnet build --configuration Release
 
-# Publish for Windows x64
-dotnet publish --configuration Release --runtime win10-x64 --self-contained true
-
 # Create single file executable
 dotnet publish --configuration Release --runtime win10-x64 --self-contained true --property:PublishSingleFile=true
 ```
@@ -103,8 +100,6 @@ This fork enhances the original [approved/OddAutoWalker](https://github.com/appr
 
 - **Adaptive Timer System** - Dynamically adjusts timer intervals based on attack speed for smoother orb walking
 - **Smart Move Logic** - Uses curve algorithms to reduce movement command frequency, preventing disconnection issues
-- **Enhanced Configuration** - More settings options with backward compatibility for fine-tuning
-- **Performance Monitoring** - API call statistics and attack speed change detection for better stability
 
 ---
 
