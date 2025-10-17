@@ -1,15 +1,80 @@
-﻿using LowLevelInput.Hooks;
-using Newtonsoft.Json.Linq;
+﻿using System.Text.Json;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
+using System.Net.Http;
+using System.Net.Security;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 using System.Timers;
+using System.Net;
 
 namespace OddAutoWalker
 {
+    public enum LogLevel
+    {
+        Info,
+        Warning,
+        Error
+    }
+
+    public enum VirtualKeyCode
+    {
+        C = 0x43
+    }
+
+    public enum KeyState
+    {
+        Down,
+        Up
+    }
+
+    public class InputManager
+    {
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+
+        public event Action<VirtualKeyCode, KeyState> OnKeyboardEvent;
+
+        private bool[] keyStates = new bool[256];
+        private Timer keyCheckTimer;
+
+        public void Initialize()
+        {
+            keyCheckTimer = new Timer(10); // 检查频率 10ms
+            keyCheckTimer.Elapsed += CheckKeys;
+            keyCheckTimer.Start();
+        }
+
+        private void CheckKeys(object sender, ElapsedEventArgs e)
+        {
+            for (int i = 0; i < 256; i++)
+            {
+                bool isPressed = (GetAsyncKeyState(i) & 0x8000) != 0;
+                
+                if (isPressed != keyStates[i])
+                {
+                    keyStates[i] = isPressed;
+                    
+                    if (Enum.IsDefined(typeof(VirtualKeyCode), i))
+                    {
+                        var keyCode = (VirtualKeyCode)i;
+                        var state = isPressed ? KeyState.Down : KeyState.Up;
+                        OnKeyboardEvent?.Invoke(keyCode, state);
+                    }
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            keyCheckTimer?.Stop();
+            keyCheckTimer?.Dispose();
+        }
+    }
+
     public class Program
     {
         [DllImport("user32.dll")]
@@ -26,11 +91,11 @@ namespace OddAutoWalker
         private static bool IsUpdatingAttackValues = false;
 
         private static readonly Settings CurrentSettings = new Settings();
-        private static readonly WebClient Client = new WebClient();
+        private static readonly HttpClient Client = CreateHttpClient();
         private static readonly InputManager InputManager = new InputManager();
         private static Process LeagueProcess = null;
 
-        private static readonly Timer OrbWalkTimer = new Timer(100d / 3d);
+        private static Timer OrbWalkTimer;
 
         private static bool OrbWalkerTimerActive = false;
 
@@ -51,7 +116,7 @@ namespace OddAutoWalker
         private static readonly double WindupBuffer = 1d / 15d;
 
         // If we're trying to input faster than this, don't
-        private static readonly double MinInputDelay = 1d / 30d;
+        private static double MinInputDelay => CurrentSettings.MinInputDelayMs / 1000.0;
 
         // This is honestly just semi-random because we need an interval to run the timer at
         private static readonly double OrderTickRate = 1d / 30d;
@@ -63,7 +128,63 @@ namespace OddAutoWalker
         // These are all in seconds
         public static double GetSecondsPerAttack() => 1 / ClientAttackSpeed;
         public static double GetWindupDuration() => (((GetSecondsPerAttack() * ChampionAttackDelayPercent) - ChampionAttackCastTime) * ChampionAttackDelayScaling) + ChampionAttackCastTime;
-        public static double GetBufferedWindupDuration() => GetWindupDuration() + WindupBuffer;
+        public static double GetBufferedWindupDuration() => GetWindupDuration() + (CurrentSettings.WindupBufferMs / 1000.0);
+
+        private static HttpClient CreateHttpClient()
+        {
+            var handler = new HttpClientHandler();
+            handler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+            return new HttpClient(handler);
+        }
+
+        private static void LogMessage(string message, LogLevel level = LogLevel.Info)
+        {
+            if (!CurrentSettings.EnableLogging) return;
+            
+            var timestamp = DateTime.Now.ToString("HH:mm:ss");
+            var levelStr = level.ToString().ToUpper();
+            Console.WriteLine($"[{timestamp}] [{levelStr}] {message}");
+        }
+
+        private static bool IsGameActive()
+        {
+            return HasProcess && !IsExiting && GetForegroundWindow() == LeagueProcess?.MainWindowHandle;
+        }
+
+        private static void Cleanup()
+        {
+            LogMessage("正在清理资源...", LogLevel.Info);
+            Client?.Dispose();
+            OrbWalkTimer?.Stop();
+            LogMessage("资源清理完成", LogLevel.Info);
+        }
+
+        private static async Task StatusDisplayLoop()
+        {
+            while (!IsExiting)
+            {
+                try
+                {
+                    if (CurrentSettings.EnableLogging)
+                    {
+                        var status = OrbWalkerTimerActive ? "激活" : "未激活";
+                        var gameStatus = IsGameActive() ? "游戏中" : "游戏外";
+                        var attackSpeed = ClientAttackSpeed.ToString("F3");
+                        var windupTime = GetWindupDuration().ToString("F3");
+                        
+                        Console.SetCursorPosition(0, 3);
+                        Console.WriteLine($"状态: {status} | 游戏: {gameStatus} | 攻速: {attackSpeed} | 前摇: {windupTime}s");
+                    }
+                    
+                    await Task.Delay(500); // 每500ms更新一次状态
+                }
+                catch (Exception ex)
+                {
+                    LogMessage($"状态显示错误: {ex.Message}", LogLevel.Error);
+                    await Task.Delay(1000);
+                }
+            }
+        }
 
         public static void Main(string[] args)
         {
@@ -71,22 +192,22 @@ namespace OddAutoWalker
             {
                 Directory.CreateDirectory("settings");
                 CurrentSettings.CreateNew(SettingsFile);
+                LogMessage("创建新的配置文件", LogLevel.Info);
             }
             else
             {
                 CurrentSettings.Load(SettingsFile);
+                LogMessage("加载配置文件成功", LogLevel.Info);
             }
-
-            ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;
-            Client.Proxy = null;
 
             Console.Clear();
             Console.CursorVisible = false;
 
             InputManager.Initialize();
             InputManager.OnKeyboardEvent += InputManager_OnKeyboardEvent;
-            InputManager.OnMouseEvent += InputManager_OnMouseEvent;
 
+            // 初始化定时器
+            OrbWalkTimer = new Timer(CurrentSettings.TimerIntervalMs);
             OrbWalkTimer.Elapsed += OrbWalkTimer_Elapsed;
 #if DEBUG
             Timer callbackTimer = new Timer(16.66);
@@ -101,7 +222,14 @@ namespace OddAutoWalker
 
             CheckLeagueProcess();
 
+            // 启动状态显示循环
+            _ = Task.Run(StatusDisplayLoop);
+
+            Console.WriteLine($"按任意键退出程序...");
             Console.ReadLine();
+            
+            // 程序退出时清理资源
+            Cleanup();
         }
 
 #if DEBUG
@@ -114,11 +242,19 @@ namespace OddAutoWalker
                 throw new Exception("Timers must not run simultaneously");
             }
         }
-#endif
 
-        private static void InputManager_OnMouseEvent(VirtualKeyCode key, KeyState state, int x, int y)
+        private static void LogTimerPerformance()
         {
+            if (owStopWatch.IsRunning)
+            {
+                var elapsed = owStopWatch.ElapsedMilliseconds;
+                if (elapsed > CurrentSettings.TimerIntervalMs * 1.5) // 如果执行时间超过预期间隔的1.5倍
+                {
+                    LogMessage($"定时器性能警告: 执行时间 {elapsed}ms，预期 {CurrentSettings.TimerIntervalMs}ms", LogLevel.Warning);
+                }
+            }
         }
+#endif
 
         private static void InputManager_OnKeyboardEvent(VirtualKeyCode key, KeyState state)
         {
@@ -129,11 +265,13 @@ namespace OddAutoWalker
                     case KeyState.Down when !OrbWalkerTimerActive:
                         OrbWalkerTimerActive = true;
                         OrbWalkTimer.Start();
+                        LogMessage("走A功能已激活", LogLevel.Info);
                         break;
 
                     case KeyState.Up when OrbWalkerTimerActive:
                         OrbWalkerTimerActive = false;
                         OrbWalkTimer.Stop();
+                        LogMessage("走A功能已停用", LogLevel.Info);
                         break;
                 }
             }
@@ -152,12 +290,12 @@ namespace OddAutoWalker
             owStopWatch.Start();
             TimerCallbackCounter++;
 #endif
-            if (!HasProcess || IsExiting || GetForegroundWindow() != LeagueProcess.MainWindowHandle)
+            if (!IsGameActive())
             {
 #if DEBUG
                 TimerCallbackCounter--;
+                LogTimerPerformance();
 #endif
-
                 return;
             }
 
@@ -204,6 +342,7 @@ namespace OddAutoWalker
             }
 #if DEBUG
             TimerCallbackCounter--;
+            LogTimerPerformance();
             owStopWatch.Reset();
 #endif
         }
@@ -227,23 +366,116 @@ namespace OddAutoWalker
         {
             HasProcess = false;
             LeagueProcess = null;
-            //Console.Clear();
-            Console.WriteLine("League Process Exited");
+            ResetGameState();
+            LogMessage("游戏进程已退出，正在重新检测...", LogLevel.Warning);
             CheckLeagueProcess();
         }
 
-        private static void AttackSpeedCacheTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private static void ResetGameState()
+        {
+            // 重置游戏相关状态
+            ActivePlayerName = string.Empty;
+            ChampionName = string.Empty;
+            RawChampionName = string.Empty;
+            ClientAttackSpeed = 0.625;
+            ChampionAttackCastTime = 0.625;
+            ChampionAttackTotalTime = 0.625;
+            ChampionAttackSpeedRatio = 0.625;
+            ChampionAttackDelayPercent = 0.3;
+            ChampionAttackDelayScaling = 1.0;
+            
+            // 重置API失败计数
+            apiFailureCount = 0;
+            lastApiFailure = DateTime.MinValue;
+            
+            LogMessage("游戏状态已重置", LogLevel.Info);
+        }
+
+        private static int apiFailureCount = 0;
+        private static DateTime lastApiFailure = DateTime.MinValue;
+
+        private static async Task<JsonDocument> GetApiDataWithRetry(string endpoint, int maxRetries = 3)
+        {
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    var response = await Client.GetStringAsync(endpoint);
+                    apiFailureCount = 0; // 重置失败计数
+                    return JsonDocument.Parse(response);
+                }
+                catch (HttpRequestException ex)
+                {
+                    LogMessage($"网络请求失败 (尝试 {i + 1}/{maxRetries}): {endpoint}, 错误: {ex.Message}", LogLevel.Warning);
+                    
+                    if (i == maxRetries - 1)
+                    {
+                        apiFailureCount++;
+                        lastApiFailure = DateTime.Now;
+                        if (apiFailureCount >= 5)
+                        {
+                            LogMessage($"API连续失败 {apiFailureCount} 次，请检查游戏是否正常运行", LogLevel.Error);
+                            // 如果连续失败太多次，尝试重置游戏状态
+                            if (apiFailureCount >= 10)
+                            {
+                                LogMessage("检测到持续API失败，尝试重置游戏状态", LogLevel.Warning);
+                                ResetGameState();
+                            }
+                        }
+                        return null;
+                    }
+                    
+                    await Task.Delay(100 * (i + 1)); // 递增延迟
+                }
+                catch (TaskCanceledException)
+                {
+                    LogMessage($"API请求超时 (尝试 {i + 1}/{maxRetries}): {endpoint}", LogLevel.Warning);
+                    
+                    if (i == maxRetries - 1)
+                    {
+                        apiFailureCount++;
+                        lastApiFailure = DateTime.Now;
+                        return null;
+                    }
+                    
+                    await Task.Delay(200 * (i + 1)); // 超时后更长的延迟
+                }
+                catch (Exception ex)
+                {
+                    LogMessage($"API调用异常 (尝试 {i + 1}/{maxRetries}): {endpoint}, 错误: {ex.Message}", LogLevel.Error);
+                    
+                    if (i == maxRetries - 1)
+                    {
+                        apiFailureCount++;
+                        lastApiFailure = DateTime.Now;
+                        return null;
+                    }
+                    
+                    await Task.Delay(100 * (i + 1));
+                }
+            }
+            return null;
+        }
+
+        private static async void AttackSpeedCacheTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             if (HasProcess && !IsExiting && !IsIntializingValues && !IsUpdatingAttackValues)
             {
                 IsUpdatingAttackValues = true;
 
-                JToken activePlayerToken = null;
+                JsonDocument activePlayerDoc = null;
                 try
                 {
-                    activePlayerToken = JToken.Parse(Client.DownloadString(ActivePlayerEndpoint));
+                    activePlayerDoc = await GetApiDataWithRetry(ActivePlayerEndpoint, CurrentSettings.ApiRetryCount);
                 }
-                catch
+                catch (Exception ex)
+                {
+                    LogMessage($"获取玩家数据失败: {ex.Message}", LogLevel.Error);
+                    IsUpdatingAttackValues = false;
+                    return;
+                }
+
+                if (activePlayerDoc == null)
                 {
                     IsUpdatingAttackValues = false;
                     return;
@@ -251,26 +483,33 @@ namespace OddAutoWalker
 
                 if (string.IsNullOrEmpty(ChampionName))
                 {
-                    ActivePlayerName = activePlayerToken?["summonerName"].ToString();
+                    ActivePlayerName = activePlayerDoc.RootElement.GetProperty("summonerName").GetString();
                     IsIntializingValues = true;
-                    JToken playerListToken = JToken.Parse(Client.DownloadString(PlayerListEndpoint));
-                    foreach (JToken token in playerListToken)
+                    JsonDocument playerListDoc = await GetApiDataWithRetry(PlayerListEndpoint, CurrentSettings.ApiRetryCount);
+                    if (playerListDoc == null)
                     {
-                        if (token["summonerName"].ToString().Equals(ActivePlayerName))
+                        IsIntializingValues = false;
+                        IsUpdatingAttackValues = false;
+                        return;
+                    }
+                    foreach (var element in playerListDoc.RootElement.EnumerateArray())
+                    {
+                        if (element.GetProperty("summonerName").GetString().Equals(ActivePlayerName))
                         {
-                            ChampionName = token["championName"].ToString();
-                            string[] rawNameArray = token["rawChampionName"].ToString().Split('_', StringSplitOptions.RemoveEmptyEntries);
+                            ChampionName = element.GetProperty("championName").GetString();
+                            string[] rawNameArray = element.GetProperty("rawChampionName").GetString().Split('_', StringSplitOptions.RemoveEmptyEntries);
                             RawChampionName = rawNameArray[^1];
                         }
                     }
 
-                    if (!GetChampionBaseValues(RawChampionName))
+                    if (!await GetChampionBaseValues(RawChampionName))
                     {
                         IsIntializingValues = false;
                         IsUpdatingAttackValues = false;
                         return;
                     }
 
+                    LogMessage($"初始化英雄数据: {ChampionName} (玩家: {ActivePlayerName})", LogLevel.Info);
 #if DEBUG
                     Console.Title = $"({ActivePlayerName}) {ChampionName}";
 #endif
@@ -289,57 +528,63 @@ namespace OddAutoWalker
                     $"Attack Down Time: {(GetSecondsPerAttack() - GetWindupDuration()):0.00####}s");
 #endif
 
-                ClientAttackSpeed = activePlayerToken["championStats"]["attackSpeed"].Value<double>();
+                ClientAttackSpeed = activePlayerDoc.RootElement.GetProperty("championStats").GetProperty("attackSpeed").GetDouble();
                 IsUpdatingAttackValues = false;
             }
         }
 
-        private static bool GetChampionBaseValues(string championName)
+        private static async Task<bool> GetChampionBaseValues(string championName)
         {
             string lowerChampionName = championName.ToLower();
-            JToken championBinToken = null;
+            JsonDocument championBinDoc = null;
             try
             {
-                championBinToken = JToken.Parse(Client.DownloadString($"{ChampionStatsEndpoint}{lowerChampionName}/{lowerChampionName}.bin.json"));
+                championBinDoc = await GetApiDataWithRetry($"{ChampionStatsEndpoint}{lowerChampionName}/{lowerChampionName}.bin.json", CurrentSettings.ApiRetryCount);
+                if (championBinDoc == null)
+                {
+                    LogMessage($"获取英雄 {championName} 数据失败", LogLevel.Error);
+                    return false;
+                }
             }
-            catch
+            catch (Exception ex)
             {
+                LogMessage($"获取英雄 {championName} 数据异常: {ex.Message}", LogLevel.Error);
                 return false;
             }
-            JToken championRootStats = championBinToken[$"Characters/{championName}/CharacterRecords/Root"];
-            ChampionAttackSpeedRatio = championRootStats["attackSpeedRatio"].Value<double>(); ;
+            var championRootStats = championBinDoc.RootElement.GetProperty($"Characters/{championName}/CharacterRecords/Root");
+            ChampionAttackSpeedRatio = championRootStats.GetProperty("attackSpeedRatio").GetDouble();
 
-            JToken championBasicAttackInfoToken = championRootStats["basicAttack"];
-            JToken championAttackDelayOffsetToken = championBasicAttackInfoToken["mAttackDelayCastOffsetPercent"];
-            JToken championAttackDelayOffsetSpeedRatioToken = championBasicAttackInfoToken["mAttackDelayCastOffsetPercentAttackSpeedRatio"];
+            var championBasicAttackInfo = championRootStats.GetProperty("basicAttack");
+            var championAttackDelayOffsetToken = championBasicAttackInfo.TryGetProperty("mAttackDelayCastOffsetPercent", out var attackDelayOffset) ? attackDelayOffset : (JsonElement?)null;
+            var championAttackDelayOffsetSpeedRatioToken = championBasicAttackInfo.TryGetProperty("mAttackDelayCastOffsetPercentAttackSpeedRatio", out var attackDelayOffsetSpeedRatio) ? attackDelayOffsetSpeedRatio : (JsonElement?)null;
 
-            if (championAttackDelayOffsetSpeedRatioToken?.Value<double?>() != null)
+            if (championAttackDelayOffsetSpeedRatioToken.HasValue)
             {
-                ChampionAttackDelayScaling = championAttackDelayOffsetSpeedRatioToken.Value<double>();
+                ChampionAttackDelayScaling = championAttackDelayOffsetSpeedRatioToken.Value.GetDouble();
             }
 
-            if (championAttackDelayOffsetToken?.Value<double?>() == null)
+            if (!championAttackDelayOffsetToken.HasValue)
             {
-                JToken attackTotalTimeToken = championBasicAttackInfoToken["mAttackTotalTime"];
-                JToken attackCastTimeToken = championBasicAttackInfoToken["mAttackCastTime"];
+                var attackTotalTimeToken = championBasicAttackInfo.TryGetProperty("mAttackTotalTime", out var attackTotalTime) ? attackTotalTime : (JsonElement?)null;
+                var attackCastTimeToken = championBasicAttackInfo.TryGetProperty("mAttackCastTime", out var attackCastTime) ? attackCastTime : (JsonElement?)null;
 
-                if (attackTotalTimeToken?.Value<double?>() == null && attackCastTimeToken?.Value<double?>() == null)
+                if (!attackTotalTimeToken.HasValue && !attackCastTimeToken.HasValue)
                 {
-                    string attackName = championBasicAttackInfoToken["mAttackName"].ToString();
+                    string attackName = championBasicAttackInfo.GetProperty("mAttackName").GetString();
                     string attackSpell = $"Characters/{attackName.Split(new[] { "BasicAttack" }, StringSplitOptions.RemoveEmptyEntries)[0]}/Spells/{attackName}";
-                    ChampionAttackDelayPercent += championBinToken[attackSpell]["mSpell"]["delayCastOffsetPercent"].Value<double>();
+                    ChampionAttackDelayPercent += championBinDoc.RootElement.GetProperty(attackSpell).GetProperty("mSpell").GetProperty("delayCastOffsetPercent").GetDouble();
                 }
                 else
                 {
-                    ChampionAttackTotalTime = attackTotalTimeToken.Value<double>();
-                    ChampionAttackCastTime = attackCastTimeToken.Value<double>(); ;
+                    ChampionAttackTotalTime = attackTotalTimeToken.Value.GetDouble();
+                    ChampionAttackCastTime = attackCastTimeToken.Value.GetDouble();
 
                     ChampionAttackDelayPercent = ChampionAttackCastTime / ChampionAttackTotalTime;
                 }
             }
             else
             {
-                ChampionAttackDelayPercent += championAttackDelayOffsetToken.Value<double>(); ;
+                ChampionAttackDelayPercent += championAttackDelayOffsetToken.Value.GetDouble();
             }
 
             return true;
