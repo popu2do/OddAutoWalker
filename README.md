@@ -77,29 +77,36 @@ Steps:
 
 1. Launch OddAutoWalker.exe and League of Legends
 2. Queue up in any mode, excluding Team Fight Tactics, and wait until you're in game
-3. Press and hold 'C' to activate the auto walker
-4. Deactivate by releasing 'C'
+3. **Short press 'C'** - Executes one complete walk-attack cycle (attack → wait for windup+buffer → move)
+4. **Hold 'C'** - Continuous orb walking until released
+5. Deactivate by releasing 'C'
+
+### Usage Tips:
+
+- **Low attack speed heroes (0.6-1.0)**: Use short press for precise positioning and skill dodging
+- **High attack speed heroes (2.5+)**: Use hold for smooth orb walking experience
+- The tool automatically calculates optimal timing based on your champion's attack speed
 
 ---
 
 ## Configuration
 
-Additional settings available in `settings/settings.json`:
+Available settings in `settings/settings.json`:
 
-- `EnableAdaptiveTimer` - Enable/disable adaptive timer system
-- `EnableSmartMoveLogic` - Enable/disable smart movement logic  
-- `MinMoveIntervalSeconds` - Minimum movement interval
-- `MinMoveCommandIntervalSeconds` - Minimum move command interval
-- `MaxMoveCommandIntervalSeconds` - Maximum move command interval
+- `ActivationKey` - Key code for activating orb walk (default: 67 = C key)
+- `MaxCheckFrequencyHz` - Maximum tick frequency for checking attack/move timing (default: 120Hz)
+- `MinMoveCommandIntervalSeconds` - Minimum interval between move commands (default: 0.01s)
+- `MaxMoveCommandIntervalSeconds` - Maximum interval between move commands (default: 0.15s)
 
 ---
 
-## Fork Improvements
+## Improvements
 
 This fork enhances the original [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) with:
 
-- **Adaptive Timer System** - Dynamically adjusts timer intervals based on attack speed for smoother orb walking
-- **Smart Move Logic** - Uses curve algorithms to reduce movement command frequency, preventing disconnection issues
+- **Dynamic Tick System** - Adjusts check frequency based on attack speed for precise timing
+- **Orb Walk Move Interval** - Calculates move command frequency based on attack speed to prevent disconnection
+- **Complete Walk-Attack Cycle** - Short press executes full attack-wait-move cycle, eliminating initial delay
 
 ---
 

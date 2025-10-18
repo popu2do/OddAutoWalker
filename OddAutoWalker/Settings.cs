@@ -33,7 +33,7 @@ namespace OddAutoWalker
         /// 防止移动间隔过长影响走位
         /// 当攻速很低时，限制最大移动间隔，保持基本的走位频率
         /// </summary>
-        public double MaxMoveCommandIntervalSeconds { get; set; } = 0.33;
+        public double MaxMoveCommandIntervalSeconds { get; set; } = 0.15;
 
         public void CreateNew(string path)
         {
@@ -53,14 +53,9 @@ namespace OddAutoWalker
         {
             var loadedSettings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(path));
             ActivationKey = loadedSettings.ActivationKey;
-            
-            // 兼容旧版本配置文件
-            if (loadedSettings.MaxCheckFrequencyHz != default(double))
-                MaxCheckFrequencyHz = loadedSettings.MaxCheckFrequencyHz;
-            if (loadedSettings.MinMoveCommandIntervalSeconds != default(double))
-                MinMoveCommandIntervalSeconds = loadedSettings.MinMoveCommandIntervalSeconds;
-            if (loadedSettings.MaxMoveCommandIntervalSeconds != default(double))
-                MaxMoveCommandIntervalSeconds = loadedSettings.MaxMoveCommandIntervalSeconds;
+            MaxCheckFrequencyHz = loadedSettings.MaxCheckFrequencyHz;
+            MinMoveCommandIntervalSeconds = loadedSettings.MinMoveCommandIntervalSeconds;
+            MaxMoveCommandIntervalSeconds = loadedSettings.MaxMoveCommandIntervalSeconds;
         }
     }
 }
