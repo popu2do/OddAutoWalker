@@ -36,18 +36,12 @@ namespace OddAutoWalker
         private static DateTime lastApiCall = DateTime.Now;        // 上次API调用时间
         private static double apiLatency = 0;                      // API延迟（毫秒）
 
-        /// <summary>
-        /// 初始化游戏状态管理器
-        /// </summary>
         public static void Initialize()
         {
             ServicePointManager.ServerCertificateValidationCallback += (sender, cert, chain, sslPolicyErrors) => true;
             Client.Proxy = null;
         }
 
-        /// <summary>
-        /// 检查LOL进程
-        /// </summary>
         public static void CheckLeagueProcess()
         {
             while (LeagueProcess is null || !HasProcess)
@@ -63,59 +57,17 @@ namespace OddAutoWalker
             }
         }
 
-        /// <summary>
-        /// 获取LOL进程
-        /// </summary>
         public static Process GetLeagueProcess() => LeagueProcess;
-
-        /// <summary>
-        /// 检查是否有LOL进程
-        /// </summary>
         public static bool HasLeagueProcess() => HasProcess;
-
-        /// <summary>
-        /// 检查是否正在退出
-        /// </summary>
         public static bool IsExitingProcess() => IsExiting;
-
-        /// <summary>
-        /// 检查是否正在初始化
-        /// </summary>
         public static bool IsInitializing() => IsIntializingValues;
-
-        /// <summary>
-        /// 检查是否正在更新攻击数据
-        /// </summary>
         public static bool IsUpdatingAttackData() => IsUpdatingAttackValues;
-
-        /// <summary>
-        /// 获取当前玩家名称
-        /// </summary>
         public static string GetActivePlayerName() => ActivePlayerName;
-
-        /// <summary>
-        /// 获取英雄名称
-        /// </summary>
         public static string GetChampionName() => ChampionName;
-
-        /// <summary>
-        /// 获取原始英雄名称
-        /// </summary>
         public static string GetRawChampionName() => RawChampionName;
-
-        /// <summary>
-        /// 获取API调用次数
-        /// </summary>
         public static int GetApiCallCount() => apiCallCount;
-
-        /// <summary>
-        /// 获取API延迟
-        /// </summary>
         public static double GetApiLatency() => apiLatency;
-
-        /// <summary>
-        /// 更新攻击速度数据
-        /// </summary>
+        
         public static void UpdateAttackSpeedData()
         {
             if (HasProcess && !IsExiting && !IsIntializingValues && !IsUpdatingAttackValues)
@@ -173,9 +125,6 @@ namespace OddAutoWalker
             }
         }
 
-        /// <summary>
-        /// 获取英雄基础数值
-        /// </summary>
         private static bool GetChampionBaseValues(string championName)
         {
             string lowerChampionName = championName.ToLower();
@@ -233,9 +182,6 @@ namespace OddAutoWalker
             return true;
         }
 
-        /// <summary>
-        /// LOL进程退出事件处理
-        /// </summary>
         private static void LeagueProcess_Exited(object sender, EventArgs e)
         {
             HasProcess = false;

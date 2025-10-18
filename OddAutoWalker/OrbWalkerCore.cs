@@ -4,52 +4,40 @@ using System.Timers;
 namespace OddAutoWalker
 {
     /// <summary>
-    /// 走A核心控制器
+    /// 走A控制器
     /// 负责协调走A的各个组件，管理定时器和执行逻辑
     /// </summary>
     public static class OrbWalkerCore
     {
         // 走A定时器：控制走A的执行频率
-        // Interval 动态调整：基于攻速和 MaxCheckFrequencyHz 计算
-        // 目标：每次攻击周期内进行8-12次检查，确保精确度
+        // 固定间隔：33.33ms (30Hz)，确保足够的检查频率
+        // 注意：当前版本使用固定间隔，未实现基于攻速的动态调整
         private static Timer OrbWalkTimer = new Timer(100d / 3d);
-        private static bool OrbWalkerTimerActive = false;          // 走A定时器是否激活
-
-        // 攻速变化检测
-        private static double LastAttackSpeed = 0.625;             // 上次攻击速度，用于检测变化
-        
-        // 设置引用
-        private static Settings currentSettings = null;
+        private static bool OrbWalkerActive = false;          // 走A是否激活
+        private static Settings currentSettings;
+        private static double lastMoveTime = 0;               // 上次移动时间   
 
 #if DEBUG
-        private static int TimerCallbackCounter = 0;
         private static readonly System.Diagnostics.Stopwatch owStopWatch = new System.Diagnostics.Stopwatch();
 #endif
 
-        /// <summary>
-        /// 初始化走A核心
-        /// </summary>
-        /// <param name="settings">设置对象</param>
         public static void Initialize(Settings settings)
         {
             currentSettings = settings;
             OrbWalkTimer.Elapsed += OrbWalkTimer_Elapsed;
             
-            // 初始化计算刻间隔
-            UpdateTickInterval(settings);
+            // 注意：当前版本使用固定间隔，未实现动态调整
+            // 定时器间隔已在声明时设置为 100d/3d (33.33ms)
         }
 
-        /// <summary>
-        /// 启动走A定时器
-        /// </summary>
-        /// <param name="settings">设置对象</param>
-        public static void StartOrbWalker(Settings settings)
+        public static void ActivateOrbWalker(Settings settings)
         {
-            if (!OrbWalkerTimerActive)
+            // 防止重复激活：只有在未激活且定时器未运行时才启动
+            if (!OrbWalkerActive && !OrbWalkTimer.Enabled)
             {
-                OrbWalkerTimerActive = true;
+                OrbWalkerActive = true;
                 
-                // 按下按键时立即检查是否可以攻击，消除定时器启动的垃圾时间
+                // 按下按键时立即检查是否可以攻击，消除定时器启动的延迟
                 // 如果当前可以攻击，立即执行攻击，然后启动定时器完成走A周期
                 var currentTime = DateTime.Now;
                 if (InputController.CanAttack(currentTime) && 
@@ -64,78 +52,43 @@ namespace OddAutoWalker
             }
         }
 
-        /// <summary>
-        /// 停止走A定时器
-        /// </summary>
-        public static void StopOrbWalker()
+        public static void DeactivateOrbWalker()
         {
-            // 点按处理：松开按键时不立即停止定时器
-            // 让定时器继续运行，直到完成当前的走A周期（移动指令发送）
-            // 这样可以确保点按也能获得完整的走A体验
-            OrbWalkerTimerActive = false;
-            // 不立即停止定时器，让移动指令有机会发送
+            OrbWalkerActive = false;
+            OrbWalkTimer.Stop();
         }
 
-        /// <summary>
-        /// 检查走A定时器是否激活
-        /// </summary>
-        /// <returns>定时器是否激活</returns>
-        public static bool IsOrbWalkerActive() => OrbWalkerTimerActive;
+        public static bool IsOrbWalkerActive() => OrbWalkerActive;
 
         /// <summary>
-        /// 更新计算刻间隔
+        /// 基于攻速计算移动间隔
+        /// 使用线性插值算法，在低攻速和高攻速之间平滑过渡
         /// </summary>
-        /// <param name="settings">设置对象</param>
-        public static void UpdateTickInterval(Settings settings)
+        private static double CalculateMoveInterval(double attackSpeed)
         {
-            if (OrbWalkTimer != null)
+            const double minInterval = 33.33;  // 最小间隔 33.33ms (30Hz) - 高攻速时使用
+            const double maxInterval = 100.0; // 最大间隔 100ms (10Hz) - 低攻速时使用
+            
+            if (attackSpeed >= currentSettings.HighAttackSpeedThreshold)
             {
-                var newInterval = AttackTimingCalculator.GetTickInterval(settings);
-                OrbWalkTimer.Interval = newInterval;
+                return minInterval;
+            }
+            else if (attackSpeed <= currentSettings.LowAttackSpeedThreshold)
+            {
+                return maxInterval;
+            }
+            else
+            {
+                // 线性插值：攻速从LowAttackSpeedThreshold到HighAttackSpeedThreshold
+                // 间隔从maxInterval到minInterval
+                double ratio = (attackSpeed - currentSettings.LowAttackSpeedThreshold) / 
+                              (currentSettings.HighAttackSpeedThreshold - currentSettings.LowAttackSpeedThreshold);
+                return maxInterval - ratio * (maxInterval - minInterval);
             }
         }
 
-        /// <summary>
-        /// 检查攻速变化并更新定时器间隔
-        /// </summary>
-        /// <param name="currentAttackSpeed">当前攻击速度</param>
-        /// <param name="settings">设置对象</param>
-        public static void CheckAttackSpeedChange(double currentAttackSpeed, Settings settings)
-        {
-            // 检测攻速变化，如果变化超过阈值则更新计算刻间隔
-            if (Math.Abs(currentAttackSpeed - LastAttackSpeed) > 0.01) // 0.01的阈值避免微小变化
-            {
-                UpdateTickInterval(settings);
-                LastAttackSpeed = currentAttackSpeed;
-            }
-        }
 
-        /// <summary>
-        /// 走A定时器回调函数
-        /// 
-        /// 走A = 攻击 + 移动的循环，关键在于时机控制：
-        /// 1. 攻击时机：等待攻击冷却时间结束
-        /// 2. 移动时机：等待攻击前摇+buffer时间结束
-        /// 3. 输入控制：防止过于频繁的输入导致系统负载
-        /// 
-        /// 前摇/后摇概念：
-        /// - 前摇（Windup）：攻击动画开始到伤害产生的时间，期间移动会取消攻击
-        /// - 后摇（Follow-through）：伤害产生后的动画时间，期间可以自由移动
-        /// - Buffer：额外缓冲时间，防止因FPS/网络延迟过早移动
-        /// 
-        /// 执行优先级：
-        /// 1. 优先攻击：如果可以攻击，立即执行攻击
-        /// 2. 其次移动：如果攻击冷却中但可以移动，执行移动
-        /// 3. 等待时机：如果都不满足，等待下次计算刻
-        /// 
-        /// 处理方式：
-        /// - 减少不必要的移动指令，避免无效微操
-        /// - 走A移动间隔，根据攻速动态调整
-        /// - 输入冷却控制，防止系统过载
-        /// 
-        /// </summary>
-        /// <param name="sender">事件发送者</param>
-        /// <param name="e">定时器事件参数</param>
+
         private static void OrbWalkTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
 #if DEBUG
@@ -154,29 +107,27 @@ namespace OddAutoWalker
             // Store time at timer tick start into a variable for readability
             var time = e.SignalTime;
 
-            // 走A处理：减少不必要的移动指令
+            // 检查是否可以发送输入
             if (InputController.CanSendInput(time))
             {
-                // 优先攻击
+                // 能攻击就攻击
                 if (InputController.CanAttack(time))
                 {
-                    // 使用统一的攻击执行方法
                     InputController.ExecuteAttackCommand(time);
                 }
-                // 移动处理：添加冷却时间和走A判断
+                // 不能攻击就移动
                 else if (InputController.CanMove(time))
                 {
-                    // 使用存储的设置对象
-                    if (currentSettings != null && InputController.ShouldSendMoveCommand(time, currentSettings))
+                    // 基于攻速的线性插值移动频率控制
+                    var attackSpeed = 1.0 / AttackTimingCalculator.GetSecondsPerAttack();
+                    var currentTimeMs = time.Ticks / 10000.0; // 转换为毫秒
+                    var moveInterval = CalculateMoveInterval(attackSpeed);
+                    
+                    // 检查是否到了移动时间
+                    if (currentTimeMs - lastMoveTime >= moveInterval)
                     {
                         InputController.ExecuteMoveCommand(time);
-                        
-                        // 点按处理：如果定时器已停用且移动指令已发送，停止定时器
-                        // 这样确保点按也能完成完整的走A周期
-                        if (!OrbWalkerTimerActive)
-                        {
-                            OrbWalkTimer.Stop();
-                        }
+                        lastMoveTime = currentTimeMs;
                     }
                 }
             }
@@ -186,19 +137,21 @@ namespace OddAutoWalker
         }
 
 #if DEBUG
-        /// <summary>
-        /// 获取调试信息
-        /// </summary>
-        /// <returns>调试信息字符串</returns>
         public static string GetDebugInfo(Settings settings)
         {
-            return $"Stopwatch: {owStopWatch.ElapsedMilliseconds}ms\n" +
-                   $"Player: {GameStateManager.GetActivePlayerName()} | Champion: {GameStateManager.GetChampionName()}\n" +
-                   $"AS: {AttackTimingCalculator.GetSecondsPerAttack():F4} | SPA: {AttackTimingCalculator.GetSecondsPerAttack():F4}s | Windup: {AttackTimingCalculator.GetWindupDuration():F4}s\n" +
-                   $"Tick: {OrbWalkTimer.Interval:F1}ms ({1000.0 / OrbWalkTimer.Interval:F1}Hz) | Move: {AttackTimingCalculator.GetOrbWalkMoveInterval(settings) * 1000:F1}ms\n" +
-                   $"Active: {OrbWalkerTimerActive} | API Calls: {GameStateManager.GetApiCallCount()} | Latency: {GameStateManager.GetApiLatency():F1}ms\n" +
-                   $"Move Commands: {InputController.GetMoveCommandCount()}/5s";
+            var currentTime = DateTime.Now;
+            var attackSpeed = 1.0 / AttackTimingCalculator.GetSecondsPerAttack();
+            var windupDuration = AttackTimingCalculator.GetWindupDuration();
+            var bufferedWindup = AttackTimingCalculator.GetBufferedWindupDuration();
+            
+            return $"Player: {GameStateManager.GetActivePlayerName()} | Champion: {GameStateManager.GetChampionName()}\n" +
+                   $"AS: {attackSpeed:F2} | SPA: {AttackTimingCalculator.GetSecondsPerAttack():F4}s | Windup: {windupDuration:F4}s | Buffered: {bufferedWindup:F4}s\n" +
+                   $"Tick: {OrbWalkTimer.Interval:F1}ms ({1000.0 / OrbWalkTimer.Interval:F1}Hz) | MinInputDelay: {AttackTimingCalculator.GetMinInputDelay() * 1000:F1}ms\n" +
+                   $"Active: {OrbWalkerActive} | Timer Running: {OrbWalkTimer.Enabled} | API Calls: {GameStateManager.GetApiCallCount()} | Latency: {GameStateManager.GetApiLatency():F1}ms\n" +
+                   $"Move Commands: {InputController.GetMoveCommandCount()}/5s | CanAttack: {InputController.CanAttack(currentTime)} | CanMove: {InputController.CanMove(currentTime)}";
         }
 #endif
     }
 }
+
+

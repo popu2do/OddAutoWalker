@@ -36,11 +36,6 @@ namespace OddAutoWalker
             InputManager.OnKeyboardEvent += InputManager_OnKeyboardEvent;
             InputManager.OnMouseEvent += InputManager_OnMouseEvent;
             
-#if DEBUG
-            Timer callbackTimer = new Timer(16.66);
-            callbackTimer.Elapsed += Timer_CallbackLog;
-#endif
-
             Timer attackSpeedCacheTimer = new Timer(AttackTimingCalculator.GetOrderTickRate());
             attackSpeedCacheTimer.Elapsed += AttackSpeedCacheTimer_Elapsed;
 
@@ -51,20 +46,6 @@ namespace OddAutoWalker
 
             Console.ReadLine();
         }
-
-#if DEBUG
-        private static int TimerCallbackCounter = 0;
-        
-        private static void Timer_CallbackLog(object sender, ElapsedEventArgs e)
-        {
-            if (TimerCallbackCounter > 1 || TimerCallbackCounter < 0)
-            {
-                Console.Clear();
-                Console.WriteLine("Timer Error Detected");
-                throw new Exception("Timers must not run simultaneously");
-            }
-        }
-#endif
 
         private static void InputManager_OnMouseEvent(VirtualKeyCode key, KeyState state, int x, int y)
         {
@@ -77,11 +58,11 @@ namespace OddAutoWalker
                 switch (state)
                 {
                     case KeyState.Down when !OrbWalkerCore.IsOrbWalkerActive():
-                        OrbWalkerCore.StartOrbWalker(CurrentSettings);
+                        OrbWalkerCore.ActivateOrbWalker(CurrentSettings);
                         break;
 
                     case KeyState.Up when OrbWalkerCore.IsOrbWalkerActive():
-                        OrbWalkerCore.StopOrbWalker();
+                        OrbWalkerCore.DeactivateOrbWalker();
                         break;
                 }
             }

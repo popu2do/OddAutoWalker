@@ -94,9 +94,18 @@ Steps:
 Available settings in `settings/settings.json`:
 
 - `ActivationKey` - Key code for activating orb walk (default: 67 = C key)
-- `MaxCheckFrequencyHz` - Maximum tick frequency for checking attack/move timing (default: 120Hz)
-- `MinMoveCommandIntervalSeconds` - Minimum interval between move commands (default: 0.01s)
-- `MaxMoveCommandIntervalSeconds` - Maximum interval between move commands (default: 0.15s)
+- `HighAttackSpeedThreshold` - High attack speed threshold for maximum move frequency (default: 3.0)
+- `LowAttackSpeedThreshold` - Low attack speed threshold for minimum move frequency (default: 1.2)
+
+### Dynamic Move Frequency Algorithm
+
+The tool uses a linear interpolation algorithm to adjust move command frequency based on attack speed:
+
+- **Low Attack Speed (≤1.2)**: 10Hz move frequency (100ms interval)
+- **High Attack Speed (≥3.0)**: 30Hz move frequency (33.33ms interval)  
+- **Medium Attack Speed (1.2-3.0)**: Linear interpolation between 10Hz and 30Hz
+
+This prevents excessive move commands at low attack speeds while maintaining responsiveness at high attack speeds.
 
 ---
 
@@ -104,9 +113,9 @@ Available settings in `settings/settings.json`:
 
 This fork enhances the original [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) with:
 
-- **Dynamic Tick System** - Adjusts check frequency based on attack speed for precise timing
-- **Orb Walk Move Interval** - Calculates move command frequency based on attack speed to prevent disconnection
-- **Complete Walk-Attack Cycle** - Short press executes full attack-wait-move cycle, eliminating initial delay
+- **Dynamic Move Frequency Control** - Adjusts move command frequency based on attack speed using linear interpolation
+- **Attack Speed-Based Optimization** - Reduces move spam at low attack speeds, maintains responsiveness at high attack speeds
+- **Simplified Configuration** - Only requires two attack speed thresholds for optimal performance
 
 ---
 

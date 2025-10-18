@@ -1,224 +1,187 @@
 /* All Corresponding Key Bind Key Codes
-* 	0 - Hotkey
-* 	1 - Lbutton
-* 	2 - Rbutton
-* 	3 - Cancel
-* 	4 - Mbutton
-* 	5 - Xbutton1
-* 	6 - Xbutton2
-* 	8 - Back
-* 	9 - Tab
-* 	12 - Clear
-* 	13 - Return
-* 	16 - Shift
-* 	17 - Control
-* 	18 - Menu
-* 	19 - Pause
-* 	20 - Capital
-* 	21 - Kana
-* 	22 - Hangul
-* 	23 - Junja
-* 	24 - Final
-* 	25 - Hanja
-* 	26 - Kanji
-* 	27 - Escape
-* 	28 - Convert
-* 	29 - Nonconvert
-* 	30 - Accept
-* 	31 - Modechange
-* 	32 - Space
-* 	33 - Prior
-* 	34 - Next
-* 	35 - End
-* 	36 - Home
-* 	37 - Left
-* 	38 - Up
-* 	39 - Right
-* 	40 - Down
-* 	41 - Select
-* 	42 - Print
-* 	43 - Execute
-* 	44 - Snapshot
-* 	45 - Insert
-* 	46 - Delete
-* 	47 - Help
-* 	48 - Zero
-* 	49 - One
-* 	50 - Two
-* 	51 - Three
-* 	52 - Four
-* 	53 - Five
-* 	54 - Six
-* 	55 - Seven
-* 	56 - Eight
-* 	57 - Nine
-* 	65 - A
-* 	66 - B
-* 	67 - C
-* 	68 - D
-* 	69 - E
-* 	70 - F
-* 	71 - G
-* 	72 - H
-* 	73 - I
-* 	74 - J
-* 	75 - K
-* 	76 - L
-* 	77 - M
-* 	78 - N
-* 	79 - O
-* 	80 - P
-* 	81 - Q
-* 	82 - R
-* 	83 - S
-* 	84 - T
-* 	85 - U
-* 	86 - V
-* 	87 - W
-* 	88 - X
-* 	89 - Y
-* 	90 - Z
-* 	91 - Lwin
-* 	92 - Rwin
-* 	93 - Apps
-* 	95 - Sleep
-* 	96 - Numpad0
-* 	97 - Numpad1
-* 	98 - Numpad2
-* 	99 - Numpad3
-* 	100 - Numpad4
-* 	101 - Numpad5
-* 	102 - Numpad6
-* 	103 - Numpad7
-* 	104 - Numpad8
-* 	105 - Numpad9
-* 	106 - Multiply
-* 	107 - Add
-* 	108 - Separator
-* 	109 - Subtract
-* 	110 - Decimal
-* 	111 - Divide
-* 	112 - F1
-* 	113 - F2
-* 	114 - F3
-* 	115 - F4
-* 	116 - F5
-* 	117 - F6
-* 	118 - F7
-* 	119 - F8
-* 	120 - F9
-* 	121 - F10
-* 	122 - F11
-* 	123 - F12
-* 	124 - F13
-* 	125 - F14
-* 	126 - F15
-* 	127 - F16
-* 	128 - F17
-* 	129 - F18
-* 	130 - F19
-* 	131 - F20
-* 	132 - F21
-* 	133 - F22
-* 	134 - F23
-* 	135 - F24
-* 	144 - Numlock
-* 	145 - Scroll
-* 	160 - Lshift
-* 	161 - Rshift
-* 	162 - Lcontrol
-* 	163 - Rcontrol
-* 	164 - Lmenu
-* 	165 - Rmenu
-* 	166 - BrowserBack
-* 	167 - BrowserForward
-* 	168 - BrowserRefresh
-* 	169 - BrowserStop
-* 	170 - BrowserSearch
-* 	171 - BrowserFavorites
-* 	172 - BrowserHome
-* 	173 - VolumeMute
-* 	174 - VolumeDown
-* 	175 - VolumeUp
-* 	176 - MediaNextTrack
-* 	177 - MediaPrevTrack
-* 	178 - MediaStop
-* 	179 - MediaPlayPause
-* 	180 - LaunchMail
-* 	181 - LaunchMediaSelect
-* 	182 - LaunchApp1
-* 	183 - LaunchApp2
-* 	186 - Oem1
-* 	187 - OemPlus
-* 	188 - OemComma
-* 	189 - OemMinus
-* 	190 - OemPeriod
-* 	191 - Oem2
-* 	192 - Oem3
-* 	219 - Oem4
-* 	220 - Oem5
-* 	221 - Oem6
-* 	222 - Oem7
-* 	223 - Oem8
-* 	226 - Oem102
-* 	229 - Processkey
-* 	231 - Packet
-* 	246 - Attn
-* 	247 - Crsel
-* 	248 - Exsel
-* 	249 - Ereof
-* 	250 - Play
-* 	251 - Zoom
-* 	252 - Noname
-* 	253 - Pa1
-* 	254 - OemClear
-* 	-1 - Invalid
-*/
+ * 	0 - None
+ * 	1 - LeftButton
+ * 	2 - RightButton
+ * 	3 - Cancel
+ * 	4 - MiddleButton
+ * 	5 - XButton1
+ * 	6 - XButton2
+ * 	7 - Back
+ * 	8 - Tab
+ * 	9 - LineFeed
+ * 	10 - Clear
+ * 	11 - Return
+ * 	12 - ShiftKey
+ * 	13 - ControlKey
+ * 	14 - Menu
+ * 	15 - Pause
+ * 	16 - Capital
+ * 	17 - KanaMode
+ * 	18 - JunjaMode
+ * 	19 - FinalMode
+ * 	20 - KanjiMode
+ * 	21 - Escape
+ * 	22 - ImeConvert
+ * 	23 - ImeNonConvert
+ * 	24 - ImeAccept
+ * 	25 - ImeModeChange
+ * 	26 - Space
+ * 	27 - Prior
+ * 	28 - Next
+ * 	29 - End
+ * 	30 - Home
+ * 	31 - Left
+ * 	32 - Up
+ * 	33 - Right
+ * 	34 - Down
+ * 	35 - Select
+ * 	36 - Print
+ * 	37 - Execute
+ * 	38 - Snapshot
+ * 	39 - Insert
+ * 	40 - Delete
+ * 	41 - Help
+ * 	42 - D0
+ * 	43 - D1
+ * 	44 - D2
+ * 	45 - D3
+ * 	46 - D4
+ * 	47 - D5
+ * 	48 - D6
+ * 	49 - D7
+ * 	50 - D8
+ * 	51 - D9
+ * 	52 - A
+ * 	53 - B
+ * 	54 - C
+ * 	55 - D
+ * 	56 - E
+ * 	57 - F
+ * 	58 - G
+ * 	59 - H
+ * 	60 - I
+ * 	61 - J
+ * 	62 - K
+ * 	63 - L
+ * 	64 - M
+ * 	65 - N
+ * 	66 - O
+ * 	67 - P
+ * 	68 - Q
+ * 	69 - R
+ * 	70 - S
+ * 	71 - T
+ * 	72 - U
+ * 	73 - V
+ * 	74 - W
+ * 	75 - X
+ * 	76 - Y
+ * 	77 - Z
+ * 	78 - LWin
+ * 	79 - RWin
+ * 	80 - Apps
+ * 	81 - Sleep
+ * 	82 - NumPad0
+ * 	83 - NumPad1
+ * 	84 - NumPad2
+ * 	85 - NumPad3
+ * 	86 - NumPad4
+ * 	87 - NumPad5
+ * 	88 - NumPad6
+ * 	89 - NumPad7
+ * 	90 - NumPad8
+ * 	91 - NumPad9
+ * 	92 - Multiply
+ * 	93 - Add
+ * 	94 - Separator
+ * 	95 - Subtract
+ * 	96 - Decimal
+ * 	97 - Divide
+ * 	98 - F1
+ * 	99 - F2
+ * 	100 - F3
+ * 	101 - F4
+ * 	102 - F5
+ * 	103 - F6
+ * 	104 - F7
+ * 	105 - F8
+ * 	106 - F9
+ * 	107 - F10
+ * 	108 - F11
+ * 	109 - F12
+ * 	110 - F13
+ * 	111 - F14
+ * 	112 - F15
+ * 	113 - F16
+ * 	114 - F17
+ * 	115 - F18
+ * 	116 - F19
+ * 	117 - F20
+ * 	118 - F21
+ * 	119 - F22
+ * 	120 - F23
+ * 	121 - F24
+ * 	122 - NumLock
+ * 	123 - Scroll
+ * 	124 - LShiftKey
+ * 	125 - RShiftKey
+ * 	126 - LControlKey
+ * 	127 - RControlKey
+ * 	128 - LMenu
+ * 	129 - RMenu
+ * 	130 - BrowserBack
+ * 	131 - BrowserForward
+ * 	132 - BrowserRefresh
+ * 	133 - BrowserStop
+ * 	134 - BrowserSearch
+ * 	135 - BrowserFavorites
+ * 	136 - BrowserHome
+ * 	137 - VolumeMute
+ * 	138 - VolumeDown
+ * 	139 - VolumeUp
+ * 	140 - MediaNextTrack
+ * 	141 - MediaPreviousTrack
+ * 	142 - MediaStop
+ * 	143 - MediaPlayPause
+ * 	144 - LaunchMail
+ * 	145 - SelectMedia
+ * 	146 - LaunchApplication1
+ * 	147 - LaunchApplication2
+ * 	148 - OemSemicolon
+ * 	149 - OemPlus
+ * 	150 - OemComma
+ * 	151 - OemMinus
+ * 	152 - OemPeriod
+ * 	153 - OemQuestion
+ * 	154 - OemTilde
+ * 	155 - OemOpenBrackets
+ * 	156 - OemPipe
+ * 	157 - OemCloseBrackets
+ * 	158 - OemQuotes
+ * 	159 - Oem8
+ * 	160 - OemBackslash
+ * 	161 - ProcessKey
+ * 	162 - Packet
+ * 	163 - Attn
+ * 	164 - Crsel
+ * 	165 - Exsel
+ * 	166 - EraseEof
+ * 	167 - Play
+ * 	168 - Zoom
+ * 	169 - NoName
+ * 	170 - Pa1
+ * 	171 - OemClear
+ * 	172 - KeyCode
+ * 	173 - Modifiers
+ * 	174 - None
+ * 	175 - LButton
+ * 	176 - RButton
+ * 	177 - MButton
+ * 	178 - XButton1
+ * 	179 - XButton2
+ */
 {
-  /* 设置参数说明：
-   * 
-   * 计算刻（Tick）：系统检查频率，用于检查"是否可以攻击/移动"
-   * - 根据攻速动态调整
-   * - 受 MaxCheckFrequencyHz 限制，防止CPU占用过高
-   * - 独立于移动频率，不受移动间隔影响
-   * 
-   * 移动频率：实际发送移动指令的频率
-   * - 根据攻速自动调整
-   * - 受计算刻限制（必须在计算刻时机才能发送）
-   * - 受 MinMoveCommandIntervalSeconds 和 MaxMoveCommandIntervalSeconds 限制
-   * 
-   * 关系：移动频率 ≤ 计算刻频率（计算刻必须足够快才能准确检测移动时机）
-   * 
-   * ActivationKey: 激活键码 (67 = C键)
-   * - 用于自动走A功能的按键
-   * - 参考上方键码表选择其他按键
-   * 
-   * MaxCheckFrequencyHz: 计算刻最大频率 (120)
-   * - 限制系统检查频率的上限，单位：Hz（次/秒）
-   * - 120Hz = 8.33ms检查一次，适配240fps显示器的一半频率
-   * - 越高越精确，但CPU占用越高；建议范围：60-240Hz
-   * 
-   * MinMoveCommandIntervalSeconds: 移动指令最小间隔 (0.01)
-   * - 防止移动指令过于频繁导致游戏掉线或无效微操
-   * - 当攻速很高时(如10.0以上)，间隔再小也没意义，不如站桩输出
-   * - 0.01秒 = 10ms = 最高100次/秒
-   * 
-   * MaxMoveCommandIntervalSeconds: 移动指令最大间隔 (0.15)
-   * - 防止移动间隔过长影响走位
-   * - 当攻速很低时，限制最大移动间隔，保持基本的走位频率
-   * - 0.15秒 = 150ms = 最慢每秒6.7次移动
-   *
-   * 使用建议：
-   * 
-   * 低攻速英雄（0.6-1.0）：点按走A，注重走位躲技能
-   * 高攻速英雄（2.5+）  ：长按走A，获得丝滑的走A体验
-   * 
-   * 如果觉得移动频率慢影响走位：调小 MaxMoveCommandIntervalSeconds
-   * 如果觉得CPU占用高或卡顿：调小 MaxCheckFrequencyHz
-   * 
-   */
   "ActivationKey": 67,
-  "MaxCheckFrequencyHz": 120,
-  "MinMoveCommandIntervalSeconds": 0.01,
-  "MaxMoveCommandIntervalSeconds": 0.15
+  "HighAttackSpeedThreshold": 3.0,
+  "LowAttackSpeedThreshold": 1.2
 }

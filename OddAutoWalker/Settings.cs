@@ -9,31 +9,10 @@ namespace OddAutoWalker
 {
     public class Settings
     {
-        /// <summary>
-        /// 激活键
-        /// </summary>
         public int ActivationKey { get; set; } = (int)VirtualKeyCode.C;
+        public double HighAttackSpeedThreshold { get; set; } = 3.0;  // 高攻速阈值
+        public double LowAttackSpeedThreshold { get; set; } = 1.2;   // 低攻速阈值
         
-        /// <summary>
-        /// 计算刻最大频率（Hz）
-        /// 限制系统检查频率的上限，防止CPU占用过高
-        /// 默认120Hz，适配240fps显示器的一半频率
-        /// </summary>
-        public double MaxCheckFrequencyHz { get; set; } = 120;
-        
-        /// <summary>
-        /// 移动指令最小间隔（秒）
-        /// 防止移动指令过于频繁导致游戏掉线或无效微操
-        /// 当攻速很高时（如10.0以上），间隔再小也没意义，不如站桩输出
-        /// </summary>
-        public double MinMoveCommandIntervalSeconds { get; set; } = 0.01;
-        
-        /// <summary>
-        /// 移动指令最大间隔（秒）
-        /// 防止移动间隔过长影响走位
-        /// 当攻速很低时，限制最大移动间隔，保持基本的走位频率
-        /// </summary>
-        public double MaxMoveCommandIntervalSeconds { get; set; } = 0.15;
 
         public void CreateNew(string path)
         {
@@ -53,9 +32,8 @@ namespace OddAutoWalker
         {
             var loadedSettings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(path));
             ActivationKey = loadedSettings.ActivationKey;
-            MaxCheckFrequencyHz = loadedSettings.MaxCheckFrequencyHz;
-            MinMoveCommandIntervalSeconds = loadedSettings.MinMoveCommandIntervalSeconds;
-            MaxMoveCommandIntervalSeconds = loadedSettings.MaxMoveCommandIntervalSeconds;
+            HighAttackSpeedThreshold = loadedSettings.HighAttackSpeedThreshold;
+            LowAttackSpeedThreshold = loadedSettings.LowAttackSpeedThreshold;
         }
     }
 }
