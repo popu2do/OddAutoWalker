@@ -71,24 +71,6 @@ dotnet publish --configuration Release --runtime win10-x64 --self-contained true
     </p>
 </details>
 
----
-
-Steps:
-
-1. Launch OddAutoWalker.exe and League of Legends
-2. Queue up in any mode, excluding Team Fight Tactics, and wait until you're in game
-3. **Short press 'C'** - Executes one complete walk-attack cycle (attack → wait for windup+buffer → move)
-4. **Hold 'C'** - Continuous orb walking until released
-5. Deactivate by releasing 'C'
-
-### Usage Tips:
-
-- **Low attack speed heroes (0.6-1.0)**: Use short press for precise positioning and skill dodging
-- **High attack speed heroes (2.5+)**: Use hold for smooth orb walking experience
-- The tool automatically calculates optimal timing based on your champion's attack speed
-
----
-
 ## Configuration
 
 Available settings in `settings/settings.json`:
@@ -115,7 +97,7 @@ This fork enhances the original [approved/OddAutoWalker](https://github.com/appr
 
 - **Dynamic Move Frequency Control** - Adjusts move command frequency based on attack speed using linear interpolation
 - **Attack Speed-Based Optimization** - Reduces move spam at low attack speeds, maintains responsiveness at high attack speeds
-- **Simplified Configuration** - Only requires two attack speed thresholds for optimal performance
+- **UAC Administrator Privileges** - Added application manifest to request administrator privileges for process access
 
 ---
 
