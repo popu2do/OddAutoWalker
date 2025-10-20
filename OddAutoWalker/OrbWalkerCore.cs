@@ -10,8 +10,8 @@ namespace OddAutoWalker
     public static class OrbWalkerCore
     {
         // 走A定时器：控制走A的执行频率
-        // 固定间隔：33.33ms (30Hz)，确保足够的检查频率
-        // 注意：当前版本使用固定间隔，未实现基于攻速的动态调整
+        // 固定间隔：33.33ms (30Hz)，用于检查攻击和移动条件
+        // 移动频率会根据攻速动态调整（33.33ms-100ms）
         private static Timer OrbWalkTimer = new Timer(100d / 3d);
         private static bool OrbWalkerActive = false;          // 走A是否激活
         private static Settings currentSettings;
@@ -26,8 +26,8 @@ namespace OddAutoWalker
             currentSettings = settings;
             OrbWalkTimer.Elapsed += OrbWalkTimer_Elapsed;
             
-            // 注意：当前版本使用固定间隔，未实现动态调整
-            // 定时器间隔已在声明时设置为 100d/3d (33.33ms)
+            // 定时器间隔固定为 100d/3d (33.33ms)
+            // 移动频率会根据攻速在 CalculateMoveInterval 中动态调整
         }
 
         public static void ActivateOrbWalker(Settings settings)
@@ -66,24 +66,21 @@ namespace OddAutoWalker
         /// </summary>
         private static double CalculateMoveInterval(double attackSpeed)
         {
-            const double minInterval = 33.33;  // 最小间隔 33.33ms (30Hz) - 高攻速时使用
-            const double maxInterval = 100.0; // 最大间隔 100ms (10Hz) - 低攻速时使用
-            
             if (attackSpeed >= currentSettings.HighAttackSpeedThreshold)
             {
-                return minInterval;
+                return currentSettings.HighAttackSpeedMoveInterval;
             }
             else if (attackSpeed <= currentSettings.LowAttackSpeedThreshold)
             {
-                return maxInterval;
+                return currentSettings.LowAttackSpeedMoveInterval;
             }
             else
             {
-                // 线性插值：攻速从LowAttackSpeedThreshold到HighAttackSpeedThreshold
-                // 间隔从maxInterval到minInterval
+                // 攻速在阈值之间时，移动间隔线性插值
                 double ratio = (attackSpeed - currentSettings.LowAttackSpeedThreshold) / 
                               (currentSettings.HighAttackSpeedThreshold - currentSettings.LowAttackSpeedThreshold);
-                return maxInterval - ratio * (maxInterval - minInterval);
+                return currentSettings.LowAttackSpeedMoveInterval - ratio * 
+                       (currentSettings.LowAttackSpeedMoveInterval - currentSettings.HighAttackSpeedMoveInterval);
             }
         }
 
@@ -118,7 +115,7 @@ namespace OddAutoWalker
                 // 不能攻击就移动
                 else if (InputController.CanMove(time))
                 {
-                    // 基于攻速的线性插值移动频率控制
+                    // 根据攻速计算移动间隔
                     var attackSpeed = 1.0 / AttackTimingCalculator.GetSecondsPerAttack();
                     var currentTimeMs = time.Ticks / 10000.0; // 转换为毫秒
                     var moveInterval = CalculateMoveInterval(attackSpeed);

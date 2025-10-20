@@ -181,7 +181,9 @@
  * 	179 - XButton2
  */
 {
-  "ActivationKey": 67,
-  "HighAttackSpeedThreshold": 3.0,
-  "LowAttackSpeedThreshold": 1.2
+  "ActivationKey": 67,                     // Activation key code for orb walk (67=C key)
+  "HighAttackSpeedThreshold": 3.0,         // High attack speed threshold, use high frequency movement above this
+  "LowAttackSpeedThreshold": 1.2,          // Low attack speed threshold, use low frequency movement below this
+  "HighAttackSpeedMoveInterval": 33.33,    // Move interval for high attack speed (ms), 33.33ms=30Hz
+  "LowAttackSpeedMoveInterval": 100.0      // Move interval for low attack speed (ms), 100ms=10Hz
 }

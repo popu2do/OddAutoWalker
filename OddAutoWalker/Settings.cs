@@ -12,6 +12,8 @@ namespace OddAutoWalker
         public int ActivationKey { get; set; } = (int)VirtualKeyCode.C;
         public double HighAttackSpeedThreshold { get; set; } = 3.0;  // 高攻速阈值
         public double LowAttackSpeedThreshold { get; set; } = 1.2;   // 低攻速阈值
+        public double HighAttackSpeedMoveInterval { get; set; } = 33.33;  // 高攻速时的移动间隔(ms)
+        public double LowAttackSpeedMoveInterval { get; set; } = 100.0;   // 低攻速时的移动间隔(ms)
         
 
         public void CreateNew(string path)
@@ -34,6 +36,8 @@ namespace OddAutoWalker
             ActivationKey = loadedSettings.ActivationKey;
             HighAttackSpeedThreshold = loadedSettings.HighAttackSpeedThreshold;
             LowAttackSpeedThreshold = loadedSettings.LowAttackSpeedThreshold;
+            HighAttackSpeedMoveInterval = loadedSettings.HighAttackSpeedMoveInterval;
+            LowAttackSpeedMoveInterval = loadedSettings.LowAttackSpeedMoveInterval;
         }
     }
 }
