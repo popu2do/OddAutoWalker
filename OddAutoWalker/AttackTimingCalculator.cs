@@ -37,6 +37,13 @@ namespace OddAutoWalker
         /// </summary>
         public const double MIN_BUFFER_RATIO = 0.3;
 
+        /// <summary>
+        /// 输入延迟补偿（秒）
+        /// 补偿 SendInput API 延迟、游戏处理延迟、线程调度等因素
+        /// 设置为 20ms，确保攻击前摇完全结束后再移动
+        /// </summary>
+        public const double INPUT_LATENCY_COMPENSATION = 0.020;
+
         // ==================== 移动频率常量（毫秒） ====================
 
         /// <summary>

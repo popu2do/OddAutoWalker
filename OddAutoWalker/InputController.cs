@@ -28,28 +28,26 @@ namespace OddAutoWalker
 
         public static void ExecuteAttackCommand(DateTime currentTime)
         {
-            // 在发送输入之前获取攻击时间（游戏从此刻开始计算前摇）
-            var attackTime = DateTime.Now;
-
-            // 设置输入冷却时间
-            nextInput = attackTime.AddSeconds(AttackTimingCalculator.GetMinInputDelay());
-
             // 发送攻击输入：A键 + 左键点击
             InputSimulator.Keyboard.KeyDown((ushort)DirectInputKeys.DIK_A);
             InputSimulator.Mouse.MouseClick(InputSimulator.Mouse.Buttons.Left);
             InputSimulator.Keyboard.KeyUp((ushort)DirectInputKeys.DIK_A);
 
-            // 重置移动时间，防止攻击后立即移动
-            lastMoveTime = attackTime;
+            // 在输入发送之后记录时间（游戏此时应已收到输入，开始计算前摇）
+            var attackTime = DateTime.Now;
 
             // 计算动态安全边际
             var windupDuration = AttackTimingCalculator.GetWindupDuration();
             var dynamicBuffer = CalculateDynamicBuffer(windupDuration);
 
-            // 设置下次移动时间（前摇 + 动态缓冲）
-            nextMove = attackTime.AddSeconds(windupDuration + dynamicBuffer);
+            // 设置下次移动时间（前摇 + 动态缓冲 + 输入延迟补偿）
+            nextMove = attackTime.AddSeconds(windupDuration + dynamicBuffer + AttackTimingCalculator.INPUT_LATENCY_COMPENSATION);
             // 设置下次攻击时间
             nextAttack = attackTime.AddSeconds(AttackTimingCalculator.GetSecondsPerAttack());
+            // 设置输入冷却时间
+            nextInput = attackTime.AddSeconds(AttackTimingCalculator.GetMinInputDelay());
+            // 重置移动时间，防止攻击后立即移动
+            lastMoveTime = attackTime;
         }
 
         public static void ExecuteMoveCommand(DateTime currentTime)
