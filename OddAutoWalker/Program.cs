@@ -36,7 +36,7 @@ namespace OddAutoWalker
             InputManager.OnKeyboardEvent += InputManager_OnKeyboardEvent;
             InputManager.OnMouseEvent += InputManager_OnMouseEvent;
             
-            Timer attackSpeedCacheTimer = new Timer(AttackTimingCalculator.GetOrderTickRate());
+            Timer attackSpeedCacheTimer = new Timer(AttackTimingCalculator.GetTickRateMs());
             attackSpeedCacheTimer.Elapsed += AttackSpeedCacheTimer_Elapsed;
 
             attackSpeedCacheTimer.Start();

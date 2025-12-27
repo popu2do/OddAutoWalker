@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using Newtonsoft.Json.Linq;
 
 namespace OddAutoWalker
@@ -49,6 +50,7 @@ namespace OddAutoWalker
                 LeagueProcess = Process.GetProcessesByName("League of Legends").FirstOrDefault();
                 if (LeagueProcess is null || LeagueProcess.HasExited)
                 {
+                    Thread.Sleep(1000); // 每秒检查一次，避免CPU空转
                     continue;
                 }
                 HasProcess = true;
