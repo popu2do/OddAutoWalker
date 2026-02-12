@@ -66,6 +66,9 @@ dotnet publish --configuration Release --runtime win10-x64 --self-contained true
                 <br>
                 If you don't want to mess with the program yourself, you must have your "Player Attack Move" bound to 'A'. <br>
                 This setting can be found in the in-game settings at Settings->Hotkeys->Player Movement.
+                <br>
+                <br>
+                The chat detection uses a key-based state machine. Make sure the in-game chat box is <b>closed</b> when launching the program, otherwise the state will be inverted. If orb walking stops responding, press Escape to reset.
             </b>
         </i>
     </p>
@@ -98,6 +101,7 @@ This fork enhances the original [approved/OddAutoWalker](https://github.com/appr
 - **Dynamic Move Frequency Control** - Adjusts move command frequency based on attack speed using linear interpolation
 - **Attack Speed-Based Optimization** - Reduces move spam at low attack speeds, maintains responsiveness at high attack speeds
 - **UAC Administrator Privileges** - Added application manifest to request administrator privileges for process access
+- **Chat Mode Detection** - Enter/Escape key state machine detects in-game chat, blocking activation key to prevent accidental orb walking while typing
 
 ---
 
