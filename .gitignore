@@ -355,3 +355,5 @@ MigrationBackup/
 .spec-workflow
 .serena
 refactor
+.claude
+CLAUDE.md
