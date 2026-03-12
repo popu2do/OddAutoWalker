@@ -10,6 +10,9 @@ namespace OddAutoWalker
     public class Settings
     {
         public int ActivationKey { get; set; } = (int)VirtualKeyCode.C;
+        public double HighAttackSpeedThreshold { get; set; } = 3.0;  // 高攻速阈值
+        public double LowAttackSpeedThreshold { get; set; } = 1.2;   // 低攻速阈值
+        
 
         public void CreateNew(string path)
         {
@@ -27,7 +30,10 @@ namespace OddAutoWalker
 
         public void Load(string path)
         {
-            ActivationKey = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(path)).ActivationKey;
+            var loadedSettings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(path));
+            ActivationKey = loadedSettings.ActivationKey;
+            HighAttackSpeedThreshold = loadedSettings.HighAttackSpeedThreshold;
+            LowAttackSpeedThreshold = loadedSettings.LowAttackSpeedThreshold;
         }
     }
 }

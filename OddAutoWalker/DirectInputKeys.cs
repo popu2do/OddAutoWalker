@@ -1,10 +1,5 @@
 ﻿namespace OddAutoWalker
 {
-    /****************************************************************************
-    *
-    *      DirectInput keyboard scan codes
-    *
-    ****************************************************************************/
     public enum DirectInputKeys
     {
         DIK_ESCAPE = 0x01,

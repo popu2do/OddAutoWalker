@@ -36,9 +36,22 @@ To Compile Yourself:
 
 * Your computer must be running Windows 10 version 1703 or higher
 * Download the latest version of [Visual Studio](https://visualstudio.microsoft.com/downloads/) (VS)
-* Make sure the .netcore 3.1 SDK is installed if it was not installed with VS
+* Make sure the .NET Core 3.1 SDK is installed if it was not installed with VS
 * Clone or Download the Source
 * Open `OddAutoWalker.sln` with VS to build and run the project
+
+### Build Commands
+
+```bash
+# Restore packages
+dotnet restore
+
+# Build the project
+dotnet build --configuration Release
+
+# Create single file executable
+dotnet publish --configuration Release --runtime win10-x64 --self-contained true --property:PublishSingleFile=true
+```
 
 ---
 
@@ -53,16 +66,45 @@ To Compile Yourself:
                 <br>
                 If you don't want to mess with the program yourself, you must have your "Player Attack Move" bound to 'A'. <br>
                 This setting can be found in the in-game settings at Settings->Hotkeys->Player Movement.
+                <br>
+                <br>
+                The chat detection uses a key-based state machine. Make sure the in-game chat box is <b>closed</b> when launching the program, otherwise the state will be inverted. If orb walking stops responding, press Escape to reset.
             </b>
         </i>
     </p>
 </details>
 
+## Configuration
+
+Available settings in `settings/settings.json`:
+
+- `ActivationKey` - Key code for activating orb walk (default: 67 = C key)
+- `HighAttackSpeedThreshold` - High attack speed threshold for maximum move frequency (default: 3.0)
+- `LowAttackSpeedThreshold` - Low attack speed threshold for minimum move frequency (default: 1.2)
+
+### Dynamic Move Frequency Algorithm
+
+The tool uses a linear interpolation algorithm to adjust move command frequency based on attack speed:
+
+- **Low Attack Speed (≤1.2)**: 10Hz move frequency (100ms interval)
+- **High Attack Speed (≥3.0)**: 30Hz move frequency (33.33ms interval)  
+- **Medium Attack Speed (1.2-3.0)**: Linear interpolation between 10Hz and 30Hz
+
+This prevents excessive move commands at low attack speeds while maintaining responsiveness at high attack speeds.
+
 ---
 
-Steps:
+## Improvements
 
-1. Launch OddAutoWalker.exe and League of Legends
-2. Queue up in any mode, excluding Team Fight Tactics, and wait until you're in game
-3. Press and hold 'C' to activate the auto walker
-4. Deactivate by releasing 'C'
+This fork enhances the original [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) with:
+
+- **Dynamic Move Frequency Control** - Adjusts move command frequency based on attack speed using linear interpolation
+- **Attack Speed-Based Optimization** - Reduces move spam at low attack speeds, maintains responsiveness at high attack speeds
+- **UAC Administrator Privileges** - Added application manifest to request administrator privileges for process access
+- **Chat Mode Detection** - Enter/Escape key state machine detects in-game chat, blocking activation key to prevent accidental orb walking while typing
+
+---
+
+## Credits
+
+Based on [approved/OddAutoWalker](https://github.com/approved/OddAutoWalker) by [approved](https://github.com/approved)
