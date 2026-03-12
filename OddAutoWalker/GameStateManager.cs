@@ -140,7 +140,7 @@ namespace OddAutoWalker
                 return false;
             }
             JToken championRootStats = championBinToken[$"Characters/{championName}/CharacterRecords/Root"];
-            var attackSpeedRatio = championRootStats["attackSpeedRatio"].Value<double>();
+            var attackSpeedRatio = championRootStats["attackSpeedRatio"]?.Value<double?>() ?? 0.625;
 
             JToken championBasicAttackInfoToken = championRootStats["basicAttack"];
             JToken championAttackDelayOffsetToken = championBasicAttackInfoToken["mAttackDelayCastOffsetPercent"];
